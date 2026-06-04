@@ -98,7 +98,16 @@ function normalizeSchema(value: unknown): SchemaField {
 		default: stringValue(record.default ?? record.Default),
 		enum: arrayValue(record.enum ?? record.Enum).map(String),
 		children: arrayValue(record.children ?? record.Children).map(normalizeSchema),
+		item: optionalSchema(record.item ?? record.Item),
+		mapValue: optionalSchema(record.mapValue ?? record.MapValue),
 	};
+}
+
+function optionalSchema(value: unknown): SchemaField | undefined {
+	if (!value || typeof value !== "object") {
+		return undefined;
+	}
+	return normalizeSchema(value);
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

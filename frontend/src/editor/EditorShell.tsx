@@ -57,12 +57,14 @@ export function EditorShell() {
 	const monacoRef = useRef<typeof Monaco | null>(null);
 	const completionProviderRef = useRef<Monaco.IDisposable | null>(null);
 	const contentChangeRef = useRef<Monaco.IDisposable | null>(null);
+	const cursorPositionRef = useRef<Monaco.IDisposable | null>(null);
 	const validationRequestRef = useRef(0);
 	const [content, setContent] = useState("");
 	const [currentFileName, setCurrentFileName] = useState("config.yaml");
 	const [recentFiles, setRecentFiles] = useState<string[]>(["config.yaml"]);
 	const [diagnostics, setDiagnostics] = useState<EditorDiagnostic[]>([]);
 	const [schema, setSchema] = useState<SchemaField>(sampleSchema);
+	const [cursor, setCursor] = useState({ line: 1, column: 1 });
 
 	const runValidation = useCallback(async (nextContent: string) => {
 		const requestID = validationRequestRef.current + 1;
@@ -111,6 +113,7 @@ export function EditorShell() {
 		monaco.editor.setTheme("yamlStructEditor");
 		completionProviderRef.current?.dispose();
 		contentChangeRef.current?.dispose();
+		cursorPositionRef.current?.dispose();
 		completionProviderRef.current = monaco.languages.registerCompletionItemProvider("yaml", {
 			triggerCharacters: [" ", "\n", ":", "-"],
 			provideCompletionItems: async (
@@ -137,6 +140,19 @@ export function EditorShell() {
 				}
 			}
 		});
+		cursorPositionRef.current = editor.onDidChangeCursorPosition((event) => {
+			setCursor({
+				line: event.position.lineNumber,
+				column: event.position.column,
+			});
+		});
+		const position = editor.getPosition();
+		if (position) {
+			setCursor({
+				line: position.lineNumber,
+				column: position.column,
+			});
+		}
 		void runValidation(editor.getValue());
 	};
 
@@ -144,6 +160,7 @@ export function EditorShell() {
 		return () => {
 			completionProviderRef.current?.dispose();
 			contentChangeRef.current?.dispose();
+			cursorPositionRef.current?.dispose();
 		};
 	}, []);
 
@@ -239,7 +256,7 @@ export function EditorShell() {
             }}
           />
         </div>
-				<SchemaPane root={schema} />
+				<SchemaPane root={schema} content={content} cursor={cursor} />
 			</section>
 			<ErrorList diagnostics={diagnostics} onSelect={handleSelectDiagnostic} />
 		</main>
