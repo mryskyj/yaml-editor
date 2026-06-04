@@ -19,7 +19,7 @@
 - [x] Validatorの基本診断を実装する
 - [x] Validatorの必須項目とenum診断を実装する
 - [x] Completion providerを実装する
-- [ ] File serviceを実装する
+- [x] File serviceを実装する
 - [ ] App serviceを実装する
 - [ ] Wails v3アプリの最小構成を作成する
 - [ ] Monaco Editor画面を実装する
@@ -103,3 +103,11 @@
 - YAMLキー名、Go型、説明、必須、デフォルト値、enumを候補に含めた
 - 同一階層に存在するキーを補完候補から除外した
 - Completion providerの単体テストを追加した
+
+### File serviceを実装する
+
+- UTF-8 YAMLファイルを開く `file.Service.Open` を追加した
+- UTF-8 YAMLファイルを保存する `file.Service.Save` を追加した
+- 新規ファイル状態を作る `NewDocument` を追加した
+- 最近開いたファイルをJSONで保存・取得する `RecentStore` を追加した
+- File serviceとRecentStoreの単体テストを追加した
