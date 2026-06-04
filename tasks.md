@@ -59,6 +59,7 @@
 - `yaml`, `required`, `desc`, `default`, `enum` タグ解析を追加した
 - struct / slice / array / map / string / bool / int系 / float系に対応した
 - `yaml:"-"` と未exported fieldを除外した
+- `yaml` タグがないフィールドを除外し、JSON/XML専用フィールドを解析対象外にした
 - 未対応型を明示的なエラーとして返すようにした
 - Struct parserの単体テストを追加した
 
@@ -119,6 +120,7 @@
 - 初期サンプルスキーマのstruct定義をApp service本体から分離した
 - 初期サンプルスキーマを `app/sampleschema` に移し、第一階層の構造体ごとにファイル分割した
 - 初期サンプルスキーマをAWS CloudFormation / Auto Scaling / ECS / SSM風の複雑な構成へ拡張した
+- 初期サンプルスキーマにJSON/XML専用構造体を混在させ、YAMLタグ付きフィールドだけが解析される単体テストを追加した
 - 起動時にサンプルスキーマを `schema.Registry` へ登録した
 - ファイル新規作成・開く・保存・最近開いたファイル取得APIを追加した
 - YAML検証APIを追加した
