@@ -28,6 +28,15 @@ func TestAppSchema(t *testing.T) {
 	if _, ok := root.FindChild("server"); !ok {
 		t.Fatal("Schema() missing server field")
 	}
+	if _, ok := root.FindChild("aws"); !ok {
+		t.Fatal("Schema() missing aws field")
+	}
+	if _, ok := root.FindChild("ecs"); !ok {
+		t.Fatal("Schema() missing ecs field")
+	}
+	if _, ok := root.FindChild("cloudformation"); !ok {
+		t.Fatal("Schema() missing cloudformation field")
+	}
 }
 
 func TestAppValidateYAML(t *testing.T) {

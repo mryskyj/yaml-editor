@@ -117,6 +117,7 @@
 
 - 初期サンプルスキーマをGo structとして定義した
 - 初期サンプルスキーマのstruct定義をApp service本体から分離した
+- 初期サンプルスキーマをAWS CloudFormation / Auto Scaling / ECS / SSM風の複雑な構成へ拡張した
 - 起動時にサンプルスキーマを `schema.Registry` へ登録した
 - ファイル新規作成・開く・保存・最近開いたファイル取得APIを追加した
 - YAML検証APIを追加した
