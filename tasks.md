@@ -22,7 +22,7 @@
 - [x] File serviceを実装する
 - [x] App serviceを実装する
 - [x] Wails v3アプリの最小構成を作成する
-- [ ] Monaco Editor画面を実装する
+- [x] Monaco Editor画面を実装する
 - [ ] エラー一覧表示を実装する
 - [ ] スキーマペイン表示を実装する
 - [ ] ファイル操作UIを実装する
@@ -128,3 +128,11 @@
 - `cmd/yaml-struct-editor/main.go` を追加した
 - App serviceをWails serviceとして登録した
 - メインウィンドウの最小設定を追加した
+
+### Monaco Editor画面を実装する
+
+- Vite + React + TypeScriptのfrontend構成を追加した
+- Monaco Editorを使ったYAML編集画面を追加した
+- 行番号、折りたたみ、Undo / Redo、YAMLシンタックスハイライトを有効にした
+- ツールバー、スキーマペイン、エラー一覧の初期レイアウトを追加した
+- frontend buildを確認した
