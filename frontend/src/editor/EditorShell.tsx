@@ -2,6 +2,7 @@ import Editor, { type OnMount } from "@monaco-editor/react";
 import { useRef, useState } from "react";
 import type * as Monaco from "monaco-editor";
 import { ErrorList, type EditorDiagnostic } from "../components/ErrorList";
+import { FileToolbar } from "../components/FileToolbar";
 import { SchemaPane, type SchemaField } from "../components/SchemaPane";
 
 const initialYaml = `server:
@@ -60,6 +61,8 @@ const sampleSchema: SchemaField = {
 export function EditorShell() {
 	const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
 	const [content, setContent] = useState(initialYaml);
+	const [currentFileName, setCurrentFileName] = useState("config.yaml");
+	const [recentFiles, setRecentFiles] = useState<string[]>(["config.yaml"]);
 	const [diagnostics] = useState<EditorDiagnostic[]>([]);
 
   const handleMount: OnMount = (editor, monaco) => {
@@ -94,26 +97,38 @@ export function EditorShell() {
 		editor.focus();
 	};
 
+	const handleNew = () => {
+		setContent("");
+		setCurrentFileName("untitled.yaml");
+	};
+
+	const handleOpen = (fileName: string, nextContent: string) => {
+		setContent(nextContent);
+		setCurrentFileName(fileName);
+		setRecentFiles((files) => [fileName, ...files.filter((file) => file !== fileName)].slice(0, 5));
+	};
+
+	const handleSave = () => {
+		const blob = new Blob([content], { type: "text/yaml;charset=utf-8" });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement("a");
+		link.href = url;
+		link.download = currentFileName || "config.yaml";
+		link.click();
+		URL.revokeObjectURL(url);
+	};
+
 	return (
-    <main className="app-shell">
-      <header className="toolbar">
-        <button type="button" className="toolbar-button">
-          New
-        </button>
-        <button type="button" className="toolbar-button">
-          Open
-        </button>
-        <button type="button" className="toolbar-button">
-          Save
-        </button>
-        <span className="toolbar-separator" />
-        <button type="button" className="toolbar-button" onClick={() => editorRef.current?.trigger("toolbar", "undo", null)}>
-          Undo
-        </button>
-        <button type="button" className="toolbar-button" onClick={() => editorRef.current?.trigger("toolbar", "redo", null)}>
-          Redo
-        </button>
-      </header>
+		<main className="app-shell">
+			<FileToolbar
+				currentFileName={currentFileName}
+				recentFiles={recentFiles}
+				onNew={handleNew}
+				onOpen={handleOpen}
+				onSave={handleSave}
+				onUndo={() => editorRef.current?.trigger("toolbar", "undo", null)}
+				onRedo={() => editorRef.current?.trigger("toolbar", "redo", null)}
+			/>
       <section className="workspace">
         <div className="editor-region">
           <Editor

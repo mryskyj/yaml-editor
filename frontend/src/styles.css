@@ -46,12 +46,35 @@ button {
 }
 
 .toolbar-button:hover {
-  background: #eef4e7;
+	background: #eef4e7;
+}
+
+.recent-select {
+	height: 32px;
+	max-width: 160px;
+	border: 1px solid #c7ccbf;
+	border-radius: 6px;
+	color: #20231f;
+	background: #fbfcf8;
+}
+
+.current-file {
+	overflow: hidden;
+	min-width: 0;
+	max-width: 220px;
+	color: #4c5546;
+	font-size: 13px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.file-input {
+	display: none;
 }
 
 .toolbar-separator {
-  width: 1px;
-  height: 24px;
+	width: 1px;
+	height: 24px;
   margin: 0 4px;
   background: #d9ddd2;
 }
