@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/mryskyj/yaml-editor/app/sampleschema"
 	"github.com/mryskyj/yaml-editor/internal/completion"
 	filex "github.com/mryskyj/yaml-editor/internal/file"
 	"github.com/mryskyj/yaml-editor/internal/schema"
@@ -30,7 +31,7 @@ func NewWithServices(files *filex.Service, registry *schema.Registry) *App {
 		registry: registry,
 	}
 	if app.registry != nil {
-		_ = app.registry.Register(sampleConfig{})
+		_ = app.registry.Register(sampleschema.Config{})
 	}
 	return app
 }

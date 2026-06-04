@@ -65,7 +65,18 @@ Backend
 ```text
 .
 ├── app/
-│   └── app.go
+│   ├── app.go
+│   └── sampleschema/
+│       ├── root.go
+│       ├── server.go
+│       ├── app.go
+│       ├── aws.go
+│       ├── cloudformation.go
+│       ├── ecs.go
+│       ├── ssm.go
+│       ├── observability.go
+│       ├── deployment.go
+│       └── security.go
 ├── internal/
 │   ├── schema/
 │   │   ├── field.go
@@ -115,6 +126,8 @@ Wailsから呼び出される公開APIを提供する。
 - 登録済みスキーマ情報の取得
 
 UI向けAPIは表示に必要なデータだけを返し、検証や補完の判断はバックエンド側で行う。
+
+初期サンプルスキーマのGo structは `app/sampleschema` に配置し、root定義と第一階層の構造体ごとにファイルを分離する。
 
 ### Schema registry
 
