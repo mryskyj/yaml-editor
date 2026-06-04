@@ -14,7 +14,7 @@
 - [x] Goプロジェクトの最小構成を作成する
 - [x] Schema modelを実装する
 - [x] Struct parserを実装する
-- [ ] Schema registryを実装する
+- [x] Schema registryを実装する
 - [ ] YAML parserを実装する
 - [ ] Validatorの基本診断を実装する
 - [ ] Validatorの必須項目とenum診断を実装する
@@ -61,3 +61,11 @@
 - `yaml:"-"` と未exported fieldを除外した
 - 未対応型を明示的なエラーとして返すようにした
 - Struct parserの単体テストを追加した
+
+### Schema registryを実装する
+
+- root schemaを保持する `schema.Registry` を追加した
+- Go structを登録して内部スキーマへ変換する `Register` を追加した
+- 登録済みroot schemaを取得する `Root` を追加した
+- 未登録状態とnil receiverを明示エラーにした
+- Schema registryの単体テストを追加した

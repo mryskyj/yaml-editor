@@ -1,0 +1,40 @@
+package schema
+
+import "fmt"
+
+// Registry holds the parsed root schema used by the application.
+type Registry struct {
+	root *Field
+}
+
+// NewRegistry creates an empty schema registry.
+func NewRegistry() *Registry {
+	return &Registry{}
+}
+
+// Register parses and stores the root schema from a Go struct value or type.
+func (r *Registry) Register(v any) error {
+	if r == nil {
+		return fmt.Errorf("schema registry is nil")
+	}
+
+	root, err := Parse(v)
+	if err != nil {
+		return err
+	}
+
+	r.root = root
+	return nil
+}
+
+// Root returns the registered root schema.
+func (r *Registry) Root() (*Field, error) {
+	if r == nil {
+		return nil, fmt.Errorf("schema registry is nil")
+	}
+	if r.root == nil {
+		return nil, fmt.Errorf("root schema is not registered")
+	}
+
+	return r.root, nil
+}
