@@ -21,8 +21,10 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-rows: 48px minmax(0, 1fr) 112px;
-  min-height: 100vh;
+  grid-template-rows: 48px minmax(0, 1fr) minmax(96px, 24vh);
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
   background: #f4f5f2;
 }
 
@@ -314,6 +316,7 @@ button {
 	display: grid;
 	grid-template-rows: 28px minmax(0, 1fr);
 	min-height: 0;
+	max-height: 100%;
 	padding: 12px;
 	border-top: 1px solid #d9ddd2;
 	background: #ffffff;
@@ -341,10 +344,10 @@ button {
 	display: grid;
 	grid-template-columns: 72px minmax(0, 1fr);
 	gap: 8px;
-	align-items: center;
+	align-items: start;
 	width: 100%;
-	min-height: 28px;
-	padding: 0 8px;
+	min-height: 32px;
+	padding: 6px 8px;
 	border: 0;
 	border-radius: 4px;
 	color: #20231f;
@@ -358,21 +361,23 @@ button {
 }
 
 .error-location {
+	padding-top: 1px;
 	color: #9b2f2f;
 	font-family: Menlo, Monaco, Consolas, monospace;
 	font-size: 12px;
+	line-height: 1.4;
 }
 
 .error-message {
-	overflow: hidden;
 	font-size: 13px;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	line-height: 1.4;
+	overflow-wrap: anywhere;
+	white-space: normal;
 }
 
 @media (max-width: 760px) {
   .app-shell {
-    grid-template-rows: 48px minmax(0, 1fr) 92px;
+    grid-template-rows: 48px minmax(0, 1fr) minmax(88px, 28vh);
   }
 
   .workspace {
