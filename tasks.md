@@ -15,7 +15,7 @@
 - [x] Schema modelを実装する
 - [x] Struct parserを実装する
 - [x] Schema registryを実装する
-- [ ] YAML parserを実装する
+- [x] YAML parserを実装する
 - [ ] Validatorの基本診断を実装する
 - [ ] Validatorの必須項目とenum診断を実装する
 - [ ] Completion providerを実装する
@@ -69,3 +69,12 @@
 - 登録済みroot schemaを取得する `Root` を追加した
 - 未登録状態とnil receiverを明示エラーにした
 - Schema registryの単体テストを追加した
+
+### YAML parserを実装する
+
+- YAML ASTと行番号・列番号を取得するため `gopkg.in/yaml.v3` を追加した
+- YAML文字列を `yaml.Node` に解析する `yamlx.Parse` を追加した
+- YAML構文エラーを行番号・列番号付き診断へ変換した
+- `yaml.Node` の位置情報を取得する `NodePosition` を追加した
+- YAML Anchor / AliasをMVP未対応診断として検出した
+- YAML parserの単体テストを追加した
