@@ -287,7 +287,7 @@ OS差異を吸収し、UTF-8テキストとしてYAMLファイルを読み書き
 - Redo
 
 保存はWails API経由でApp serviceの `SaveFile` を呼び出す。
-保存先パスが未確定の場合は、保存時にユーザーへ保存先パスの入力を求める。
+保存先パスが未確定の場合は、Wails runtimeの保存ダイアログで保存先パスを取得してから保存する。
 
 ### Monaco Editor
 

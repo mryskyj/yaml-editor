@@ -14,11 +14,25 @@ type RuntimeModule = {
 	Call?: {
 		ByName?: (methodName: string, ...args: unknown[]) => Promise<unknown>;
 	};
+	Dialogs?: {
+		SaveFile?: (options: SaveFileDialogOptions) => Promise<string>;
+	};
 };
 
 const serviceName = "github.com/mryskyj/yaml-editor/app.App";
 
 let runtimePromise: Promise<RuntimeModule | null> | null = null;
+
+type SaveFileDialogOptions = {
+	Title?: string;
+	Filename?: string;
+	ButtonText?: string;
+	CanCreateDirectories?: boolean;
+	Filters?: Array<{
+		DisplayName?: string;
+		Pattern?: string;
+	}>;
+};
 
 export async function validateYAML(content: string): Promise<EditorDiagnostic[]> {
 	const result = await callBackend(`${serviceName}.ValidateYAML`, content);
@@ -50,6 +64,24 @@ export async function loadSchema(): Promise<SchemaField | null> {
 
 export async function saveYAML(path: string, content: string): Promise<void> {
 	await callRequiredBackend(`${serviceName}.SaveFile`, path, content);
+}
+
+export async function chooseSavePath(filename: string): Promise<string> {
+	const runtime = await loadRuntime();
+	if (!runtime?.Dialogs?.SaveFile) {
+		throw new Error("Wails save dialog is not available");
+	}
+
+	return runtime.Dialogs.SaveFile({
+		Title: "Save YAML File",
+		Filename: filename || "config.yaml",
+		ButtonText: "Save",
+		CanCreateDirectories: true,
+		Filters: [
+			{ DisplayName: "YAML Files", Pattern: "*.yaml;*.yml" },
+			{ DisplayName: "All Files", Pattern: "*" },
+		],
+	});
 }
 
 async function callBackend(methodName: string, ...args: unknown[]): Promise<unknown> {

@@ -1,7 +1,14 @@
 import Editor, { type OnMount } from "@monaco-editor/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type * as Monaco from "monaco-editor";
-import { completeYAML, loadSchema, saveYAML, type CompletionCandidate, validateYAML } from "../app/api";
+import {
+	chooseSavePath,
+	completeYAML,
+	loadSchema,
+	saveYAML,
+	type CompletionCandidate,
+	validateYAML,
+} from "../app/api";
 import { ErrorList, type EditorDiagnostic } from "../components/ErrorList";
 import { FileToolbar } from "../components/FileToolbar";
 import { SchemaPane, type SchemaField } from "../components/SchemaPane";
@@ -215,12 +222,12 @@ export function EditorShell() {
 	};
 
 	const handleSave = async () => {
-		const path = currentFilePath || window.prompt("Save YAML file path", currentFileName);
-		if (!path) {
-			return;
-		}
-
 		try {
+			const path = currentFilePath || (await chooseSavePath(currentFileName));
+			if (!path) {
+				return;
+			}
+
 			await saveYAML(path, content);
 			setCurrentFilePath(path);
 			setCurrentFileName(fileNameFromPath(path));
