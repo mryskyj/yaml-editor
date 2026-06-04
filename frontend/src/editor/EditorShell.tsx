@@ -56,6 +56,7 @@ export function EditorShell() {
 	const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
 	const monacoRef = useRef<typeof Monaco | null>(null);
 	const completionProviderRef = useRef<Monaco.IDisposable | null>(null);
+	const contentChangeRef = useRef<Monaco.IDisposable | null>(null);
 	const validationRequestRef = useRef(0);
 	const [content, setContent] = useState("");
 	const [currentFileName, setCurrentFileName] = useState("config.yaml");
@@ -109,6 +110,7 @@ export function EditorShell() {
 		});
 		monaco.editor.setTheme("yamlStructEditor");
 		completionProviderRef.current?.dispose();
+		contentChangeRef.current?.dispose();
 		completionProviderRef.current = monaco.languages.registerCompletionItemProvider("yaml", {
 			triggerCharacters: [" ", "\n", ":", "-"],
 			provideCompletionItems: async (
@@ -127,11 +129,22 @@ export function EditorShell() {
 				};
 			},
 		});
+		contentChangeRef.current = editor.onDidChangeModelContent((event) => {
+			for (const change of event.changes) {
+				if (shouldTriggerSuggest(editor, change.text)) {
+					editor.trigger("yaml-struct-editor", "editor.action.triggerSuggest", null);
+					break;
+				}
+			}
+		});
 		void runValidation(editor.getValue());
 	};
 
 	useEffect(() => {
-		return () => completionProviderRef.current?.dispose();
+		return () => {
+			completionProviderRef.current?.dispose();
+			contentChangeRef.current?.dispose();
+		};
 	}, []);
 
 	useEffect(() => {
@@ -284,4 +297,30 @@ function completionDetail(candidate: CompletionCandidate): string {
 		parts.push(`default: ${candidate.default}`);
 	}
 	return parts.filter(Boolean).join(" | ");
+}
+
+function shouldTriggerSuggest(
+	editor: Monaco.editor.IStandaloneCodeEditor,
+	insertedText: string,
+): boolean {
+	if (!/^[A-Za-z0-9_-]+$/.test(insertedText)) {
+		return false;
+	}
+
+	const model = editor.getModel();
+	const position = editor.getPosition();
+	if (!model || !position) {
+		return false;
+	}
+
+	const linePrefix = model.getLineContent(position.lineNumber).slice(0, position.column - 1);
+	const trimmedPrefix = linePrefix.trimStart();
+	if (trimmedPrefix.startsWith("#")) {
+		return false;
+	}
+
+	if (!linePrefix.includes(":")) {
+		return true;
+	}
+	return /:\s*[A-Za-z0-9_-]*$/.test(linePrefix);
 }
