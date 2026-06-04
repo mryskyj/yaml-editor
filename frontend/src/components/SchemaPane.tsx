@@ -212,20 +212,39 @@ function schemaContext(root: SchemaField, content: string, cursorLine: number): 
 
 function inferPath(content: string, cursorLine: number): string[] {
   const stack: Array<{ indent: number; key: string }> = [];
-  const lines = content.split(/\r?\n/).slice(0, Math.max(cursorLine, 1));
+  const lines = content.split(/\r?\n/);
+  const currentLineIndex = Math.max(Math.min(cursorLine - 1, lines.length - 1), 0);
 
-  for (const line of lines) {
+  for (const line of lines.slice(0, currentLineIndex)) {
     const entry = parseKeyLine(line);
     if (!entry) {
       continue;
     }
-    while (stack.length > 0 && stack[stack.length - 1].indent >= entry.indent) {
-      stack.pop();
-    }
+    popToIndent(stack, entry.indent);
     stack.push(entry);
   }
 
+  const currentLine = lines[currentLineIndex] ?? "";
+  const currentEntry = parseKeyLine(currentLine);
+  if (currentEntry) {
+    popToIndent(stack, currentEntry.indent);
+    stack.push(currentEntry);
+    return stack.map((entry) => entry.key);
+  }
+
+  popToIndent(stack, currentIndent(currentLine));
   return stack.map((entry) => entry.key);
+}
+
+function popToIndent(stack: Array<{ indent: number; key: string }>, indent: number) {
+  while (stack.length > 0 && stack[stack.length - 1].indent >= indent) {
+    stack.pop();
+  }
+}
+
+function currentIndent(line: string): number {
+  const match = line.match(/^(\s*)/);
+  return match ? match[1].length : 0;
 }
 
 function usedKeysAtPath(content: string, targetPath: string[]): Set<string> {
