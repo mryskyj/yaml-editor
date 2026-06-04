@@ -31,7 +31,7 @@ func main() {
 		MinWidth:         900,
 		MinHeight:        600,
 		BackgroundColour: application.NewRGB(255, 255, 255),
-		URL:              "http://wails.localhost/",
+		URL:              "/",
 	})
 	window.Center()
 	window.Show()

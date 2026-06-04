@@ -6,8 +6,8 @@ import (
 	"github.com/mryskyj/yaml-editor/internal/schema"
 )
 
-// Provide returns schema-aware YAML key completion candidates at a cursor position.
-func Provide(source string, line int, _ int, root *schema.Field) []Candidate {
+// Provide returns schema-aware YAML completion candidates at a cursor position.
+func Provide(source string, line int, column int, root *schema.Field) []Candidate {
 	if root == nil || line <= 0 {
 		return nil
 	}
@@ -19,6 +19,10 @@ func Provide(source string, line int, _ int, root *schema.Field) []Candidate {
 	current := fieldAtPath(root, path)
 	if current == nil {
 		return nil
+	}
+
+	if valueField := valueFieldAtCursor(lineAt(lines, cursorIndex), column, current); valueField != nil {
+		return enumCandidates(valueField)
 	}
 
 	existing := existingKeys(lines, cursorIndex, cursorIndent, path)
@@ -37,6 +41,49 @@ func Provide(source string, line int, _ int, root *schema.Field) []Candidate {
 		})
 	}
 
+	return candidates
+}
+
+func valueFieldAtCursor(line string, column int, current *schema.Field) *schema.Field {
+	if current == nil || column <= 0 {
+		return nil
+	}
+
+	trimmed := strings.TrimSpace(line)
+	trimmed = strings.TrimPrefix(trimmed, "- ")
+	colonIndex := strings.Index(trimmed, ":")
+	if colonIndex <= 0 {
+		return nil
+	}
+
+	lineColonColumn := indentation(line) + colonIndex + 1
+	if column <= lineColonColumn {
+		return nil
+	}
+
+	child, ok := current.FindChild(strings.TrimSpace(trimmed[:colonIndex]))
+	if !ok {
+		return nil
+	}
+	return child
+}
+
+func enumCandidates(field *schema.Field) []Candidate {
+	if field == nil || len(field.Enum) == 0 {
+		return nil
+	}
+
+	candidates := make([]Candidate, 0, len(field.Enum))
+	for _, value := range field.Enum {
+		candidates = append(candidates, Candidate{
+			Name:        value,
+			Type:        field.Type,
+			Description: field.Description,
+			Required:    field.Required,
+			Default:     field.Default,
+			Enum:        field.Enum,
+		})
+	}
 	return candidates
 }
 

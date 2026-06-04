@@ -86,6 +86,17 @@ func TestProvideIncludesMetadata(t *testing.T) {
 	}
 }
 
+func TestProvideEnumValueCandidates(t *testing.T) {
+	t.Parallel()
+
+	candidates := Provide("app:\n  mode: \n", 2, 9, completionSchema(t))
+	names := candidateNames(candidates)
+	want := []string{"dev", "stg", "prod"}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("candidate names = %#v, want %#v", names, want)
+	}
+}
+
 func TestProvideNilSchema(t *testing.T) {
 	t.Parallel()
 

@@ -101,6 +101,7 @@
 - 補完候補 `completion.Candidate` を追加した
 - カーソル行のインデントから現在階層を推定する `completion.Provide` を追加した
 - YAMLキー名、Go型、説明、必須、デフォルト値、enumを候補に含めた
+- enum値入力位置では許可値を補完候補として返すようにした
 - 同一階層に存在するキーを補完候補から除外した
 - Completion providerの単体テストを追加した
 
@@ -161,6 +162,9 @@
 ### 統合動作を確認する
 
 - Wailsアプリにfrontend build出力のアセット配信設定を追加した
+- Wailsアプリの起動URLをfrontend build出力のルートに合わせた
+- Monaco EditorからWails API経由で補完候補と検証診断を取得するようにした
+- 入力変更時にMonaco diagnosticsとエラー一覧を更新するようにした
 - frontend buildを確認した
 - Go全体テストを確認した
 - Wailsエントリポイントのbuildを確認した

@@ -1,6 +1,7 @@
 import Editor, { type OnMount } from "@monaco-editor/react";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type * as Monaco from "monaco-editor";
+import { completeYAML, loadSchema, type CompletionCandidate, validateYAML } from "../app/api";
 import { ErrorList, type EditorDiagnostic } from "../components/ErrorList";
 import { FileToolbar } from "../components/FileToolbar";
 import { SchemaPane, type SchemaField } from "../components/SchemaPane";
@@ -60,25 +61,104 @@ const sampleSchema: SchemaField = {
 
 export function EditorShell() {
 	const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+	const monacoRef = useRef<typeof Monaco | null>(null);
+	const completionProviderRef = useRef<Monaco.IDisposable | null>(null);
+	const validationRequestRef = useRef(0);
 	const [content, setContent] = useState(initialYaml);
 	const [currentFileName, setCurrentFileName] = useState("config.yaml");
 	const [recentFiles, setRecentFiles] = useState<string[]>(["config.yaml"]);
-	const [diagnostics] = useState<EditorDiagnostic[]>([]);
+	const [diagnostics, setDiagnostics] = useState<EditorDiagnostic[]>([]);
+	const [schema, setSchema] = useState<SchemaField>(sampleSchema);
 
-  const handleMount: OnMount = (editor, monaco) => {
-    editorRef.current = editor;
-    monaco.editor.defineTheme("yamlStructEditor", {
-      base: "vs",
-      inherit: true,
-      rules: [],
-      colors: {
-        "editor.background": "#fbfbf8",
-        "editorLineNumber.foreground": "#7d8178",
-        "editor.selectionBackground": "#cfe5ff",
-      },
-    });
-    monaco.editor.setTheme("yamlStructEditor");
-  };
+	const runValidation = useCallback(async (nextContent: string) => {
+		const requestID = validationRequestRef.current + 1;
+		validationRequestRef.current = requestID;
+		const nextDiagnostics = await validateYAML(nextContent);
+		if (validationRequestRef.current === requestID) {
+			setDiagnostics(nextDiagnostics);
+		}
+	}, []);
+
+	const applyMarkers = useCallback((nextDiagnostics: EditorDiagnostic[]) => {
+		const editor = editorRef.current;
+		const monaco = monacoRef.current;
+		const model = editor?.getModel();
+		if (!monaco || !model) {
+			return;
+		}
+
+		monaco.editor.setModelMarkers(
+			model,
+			"yaml-struct-editor",
+			nextDiagnostics.map((diagnostic) => ({
+				severity: monaco.MarkerSeverity.Error,
+				message: diagnostic.message,
+				startLineNumber: diagnostic.line,
+				startColumn: diagnostic.column,
+				endLineNumber: diagnostic.line,
+				endColumn: diagnostic.column + 1,
+			})),
+		);
+	}, []);
+
+	const handleMount: OnMount = (editor, monaco) => {
+		editorRef.current = editor;
+		monacoRef.current = monaco;
+		monaco.editor.defineTheme("yamlStructEditor", {
+			base: "vs",
+			inherit: true,
+			rules: [],
+			colors: {
+				"editor.background": "#fbfbf8",
+				"editorLineNumber.foreground": "#7d8178",
+				"editor.selectionBackground": "#cfe5ff",
+			},
+		});
+		monaco.editor.setTheme("yamlStructEditor");
+		completionProviderRef.current?.dispose();
+		completionProviderRef.current = monaco.languages.registerCompletionItemProvider("yaml", {
+			triggerCharacters: [" ", "\n", ":", "-"],
+			provideCompletionItems: async (
+				model: Monaco.editor.ITextModel,
+				position: Monaco.Position,
+			) => {
+				const candidates = await completeYAML(
+					model.getValue(),
+					position.lineNumber,
+					position.column,
+				);
+				return {
+					suggestions: candidates
+						.filter((candidate) => candidate.name !== "")
+						.map((candidate) => toCompletionItem(monaco, model, position, candidate)),
+				};
+			},
+		});
+		void runValidation(editor.getValue());
+	};
+
+	useEffect(() => {
+		return () => completionProviderRef.current?.dispose();
+	}, []);
+
+	useEffect(() => {
+		void loadSchema().then((loadedSchema) => {
+			if (loadedSchema) {
+				setSchema(loadedSchema);
+			}
+		});
+	}, []);
+
+	useEffect(() => {
+		const timerID = window.setTimeout(() => {
+			void runValidation(content);
+		}, 200);
+		return () => window.clearTimeout(timerID);
+	}, [content, runValidation]);
+
+	useEffect(() => {
+		applyMarkers(diagnostics);
+	}, [diagnostics, applyMarkers]);
 
 	const handleSelectDiagnostic = (diagnostic: EditorDiagnostic) => {
 		const editor = editorRef.current;
@@ -146,14 +226,69 @@ export function EditorShell() {
               minimap: { enabled: false },
               padding: { top: 12, bottom: 12 },
               scrollBeyondLastLine: false,
+              quickSuggestions: { other: true, comments: false, strings: false },
+              suggestOnTriggerCharacters: true,
               tabSize: 2,
               wordWrap: "on",
             }}
           />
         </div>
-				<SchemaPane root={sampleSchema} />
+				<SchemaPane root={schema} />
 			</section>
 			<ErrorList diagnostics={diagnostics} onSelect={handleSelectDiagnostic} />
 		</main>
 	);
+}
+
+function toCompletionItem(
+	monaco: typeof Monaco,
+	model: Monaco.editor.ITextModel,
+	position: Monaco.Position,
+	candidate: CompletionCandidate,
+): Monaco.languages.CompletionItem {
+	const line = model.getLineContent(position.lineNumber);
+	const isValue = line.lastIndexOf(":", position.column - 1) >= 0;
+	const word = model.getWordUntilPosition(position);
+	const range = {
+		startLineNumber: position.lineNumber,
+		endLineNumber: position.lineNumber,
+		startColumn: word.startColumn,
+		endColumn: word.endColumn,
+	};
+
+	if (isValue) {
+		return {
+			label: candidate.name,
+			kind: monaco.languages.CompletionItemKind.Value,
+			insertText: candidate.name,
+			range,
+			detail: completionDetail(candidate),
+			documentation: candidate.description,
+		};
+	}
+
+	const isContainer = candidate.type === "struct" || candidate.type === "map";
+	const defaultValue = candidate.default ?? candidate.enum?.[0] ?? "";
+	return {
+		label: candidate.name,
+		kind: monaco.languages.CompletionItemKind.Property,
+		insertText: isContainer
+			? `${candidate.name}:\n  $0`
+			: `${candidate.name}: ${defaultValue}$0`,
+		insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+		range,
+		detail: completionDetail(candidate),
+		documentation: candidate.description,
+	};
+}
+
+function completionDetail(candidate: CompletionCandidate): string {
+	const parts = [candidate.type, candidate.required ? "required" : "optional"];
+	if (candidate.enum && candidate.enum.length > 0) {
+		parts.push(`enum: ${candidate.enum.join(", ")}`);
+	}
+	if (candidate.default) {
+		parts.push(`default: ${candidate.default}`);
+	}
+	return parts.filter(Boolean).join(" | ");
 }
