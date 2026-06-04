@@ -16,7 +16,7 @@
 - [x] Struct parserを実装する
 - [x] Schema registryを実装する
 - [x] YAML parserを実装する
-- [ ] Validatorの基本診断を実装する
+- [x] Validatorの基本診断を実装する
 - [ ] Validatorの必須項目とenum診断を実装する
 - [ ] Completion providerを実装する
 - [ ] File serviceを実装する
@@ -78,3 +78,13 @@
 - `yaml.Node` の位置情報を取得する `NodePosition` を追加した
 - YAML Anchor / AliasをMVP未対応診断として検出した
 - YAML parserの単体テストを追加した
+
+### Validatorの基本診断を実装する
+
+- Validator用の `Diagnostic` と `Severity` を追加した
+- YAML parser診断をValidator診断へ変換した
+- 未定義キー診断を追加した
+- 型不一致診断を追加した
+- ネスト不一致診断を追加した
+- struct / slice / array / map の子要素検証を追加した
+- Validator基本診断の単体テストを追加した
