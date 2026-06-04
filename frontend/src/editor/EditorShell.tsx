@@ -6,13 +6,6 @@ import { ErrorList, type EditorDiagnostic } from "../components/ErrorList";
 import { FileToolbar } from "../components/FileToolbar";
 import { SchemaPane, type SchemaField } from "../components/SchemaPane";
 
-const initialYaml = `server:
-  host: localhost
-  port: 8080
-app:
-  mode: dev
-`;
-
 const sampleSchema: SchemaField = {
 	name: "Config",
 	type: "struct",
@@ -64,7 +57,7 @@ export function EditorShell() {
 	const monacoRef = useRef<typeof Monaco | null>(null);
 	const completionProviderRef = useRef<Monaco.IDisposable | null>(null);
 	const validationRequestRef = useRef(0);
-	const [content, setContent] = useState(initialYaml);
+	const [content, setContent] = useState("");
 	const [currentFileName, setCurrentFileName] = useState("config.yaml");
 	const [recentFiles, setRecentFiles] = useState<string[]>(["config.yaml"]);
 	const [diagnostics, setDiagnostics] = useState<EditorDiagnostic[]>([]);
