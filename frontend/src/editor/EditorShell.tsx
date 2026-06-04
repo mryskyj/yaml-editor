@@ -1,7 +1,7 @@
 import Editor, { type OnMount } from "@monaco-editor/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type * as Monaco from "monaco-editor";
-import { completeYAML, loadSchema, type CompletionCandidate, validateYAML } from "../app/api";
+import { completeYAML, loadSchema, saveYAML, type CompletionCandidate, validateYAML } from "../app/api";
 import { ErrorList, type EditorDiagnostic } from "../components/ErrorList";
 import { FileToolbar } from "../components/FileToolbar";
 import { SchemaPane, type SchemaField } from "../components/SchemaPane";
@@ -60,7 +60,8 @@ export function EditorShell() {
 	const cursorPositionRef = useRef<Monaco.IDisposable | null>(null);
 	const validationRequestRef = useRef(0);
 	const [content, setContent] = useState("");
-	const [currentFileName, setCurrentFileName] = useState("config.yaml");
+	const [currentFileName, setCurrentFileName] = useState("untitled.yaml");
+	const [currentFilePath, setCurrentFilePath] = useState("");
 	const [recentFiles, setRecentFiles] = useState<string[]>(["config.yaml"]);
 	const [diagnostics, setDiagnostics] = useState<EditorDiagnostic[]>([]);
 	const [schema, setSchema] = useState<SchemaField>(sampleSchema);
@@ -203,22 +204,30 @@ export function EditorShell() {
 	const handleNew = () => {
 		setContent("");
 		setCurrentFileName("untitled.yaml");
+		setCurrentFilePath("");
 	};
 
 	const handleOpen = (fileName: string, nextContent: string) => {
 		setContent(nextContent);
 		setCurrentFileName(fileName);
+		setCurrentFilePath("");
 		setRecentFiles((files) => [fileName, ...files.filter((file) => file !== fileName)].slice(0, 5));
 	};
 
-	const handleSave = () => {
-		const blob = new Blob([content], { type: "text/yaml;charset=utf-8" });
-		const url = URL.createObjectURL(blob);
-		const link = document.createElement("a");
-		link.href = url;
-		link.download = currentFileName || "config.yaml";
-		link.click();
-		URL.revokeObjectURL(url);
+	const handleSave = async () => {
+		const path = currentFilePath || window.prompt("Save YAML file path", currentFileName);
+		if (!path) {
+			return;
+		}
+
+		try {
+			await saveYAML(path, content);
+			setCurrentFilePath(path);
+			setCurrentFileName(fileNameFromPath(path));
+			setRecentFiles((files) => [path, ...files.filter((file) => file !== path)].slice(0, 5));
+		} catch (error) {
+			window.alert(error instanceof Error ? error.message : "Save failed");
+		}
 	};
 
 	return (
@@ -261,6 +270,12 @@ export function EditorShell() {
 			<ErrorList diagnostics={diagnostics} onSelect={handleSelectDiagnostic} />
 		</main>
 	);
+}
+
+function fileNameFromPath(path: string): string {
+	const normalized = path.replace(/\\/g, "/");
+	const parts = normalized.split("/").filter(Boolean);
+	return parts.at(-1) ?? path;
 }
 
 function toCompletionItem(

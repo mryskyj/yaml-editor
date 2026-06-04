@@ -286,6 +286,9 @@ OS差異を吸収し、UTF-8テキストとしてYAMLファイルを読み書き
 - Undo
 - Redo
 
+保存はWails API経由でApp serviceの `SaveFile` を呼び出す。
+保存先パスが未確定の場合は、保存時にユーザーへ保存先パスの入力を求める。
+
 ### Monaco Editor
 
 主な責務:

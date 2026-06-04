@@ -48,10 +48,22 @@ export async function loadSchema(): Promise<SchemaField | null> {
 	return normalizeSchema(result);
 }
 
+export async function saveYAML(path: string, content: string): Promise<void> {
+	await callRequiredBackend(`${serviceName}.SaveFile`, path, content);
+}
+
 async function callBackend(methodName: string, ...args: unknown[]): Promise<unknown> {
 	const runtime = await loadRuntime();
 	if (!runtime?.Call?.ByName) {
 		return null;
+	}
+	return runtime.Call.ByName(methodName, ...args);
+}
+
+async function callRequiredBackend(methodName: string, ...args: unknown[]): Promise<unknown> {
+	const runtime = await loadRuntime();
+	if (!runtime?.Call?.ByName) {
+		throw new Error("Wails runtime is not available");
 	}
 	return runtime.Call.ByName(methodName, ...args);
 }
