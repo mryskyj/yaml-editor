@@ -253,25 +253,38 @@ enum:"dev,stg,prod"
 
 ## 初期サンプルスキーマ
 
-Config
+初期サンプルスキーマは `app/sampleschema` にGo structとして定義する。
+root定義と第一階層の構造体ごとにファイルを分離し、AWSなど実在の設定ファイルを参考にした複雑な構成を扱えることを確認する。
+
+Configの第一階層:
 
 - server
 - app
+- aws
+- cloudformation
+- ecs
+- ssm
+- observability
+- deployment
+- security
 
-server
+`server` の例:
 
 - host
 - port
 
-app
+`app` の例:
 
 - mode
 
-mode
+`mode` の許可値:
 
 - dev
 - stg
 - prod
+
+サンプルスキーマにはJSON/XML専用の構造体も混在させる。
+ただしYAML編集用スキーマには、`yaml` タグがあるフィールドだけを取り込む。
 
 ---
 

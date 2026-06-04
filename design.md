@@ -76,7 +76,8 @@ Backend
 │       ├── ssm.go
 │       ├── observability.go
 │       ├── deployment.go
-│       └── security.go
+│       ├── security.go
+│       └── foreign.go
 ├── internal/
 │   ├── schema/
 │   │   ├── field.go
@@ -128,6 +129,8 @@ Wailsから呼び出される公開APIを提供する。
 UI向けAPIは表示に必要なデータだけを返し、検証や補完の判断はバックエンド側で行う。
 
 初期サンプルスキーマのGo structは `app/sampleschema` に配置し、root定義と第一階層の構造体ごとにファイルを分離する。
+サンプルスキーマはAWS CloudFormation / ECS / SSMなど実在の設定ファイルを参考にした構成を含める。
+JSON/XML専用の不要構造体も混在させ、Struct parserがYAMLタグ付きフィールドだけを取り込むことを確認できるようにする。
 
 ### Schema registry
 
@@ -446,9 +449,7 @@ requirements.mdに従い、以下は設計対象外とする。
 
 ### 登録するGo struct
 
-MVPではアプリ起動時に単一のGo structを登録する設計とする。
-
-実際にどのstructを登録するかは、実装タスクでサンプルまたはアプリ固有の設定structを定義して決定する。
+MVPではアプリ起動時に単一のGo structを登録する設計とし、現在は `app/sampleschema.Config` を登録する。
 
 ### 最近開いたファイルの保存場所
 
