@@ -83,34 +83,55 @@ button {
 }
 
 .schema-tree {
-  display: grid;
-  gap: 8px;
+	display: grid;
+	gap: 6px;
 }
 
 .schema-node {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: center;
-  min-height: 28px;
+	display: grid;
+	gap: 4px;
+	align-items: start;
+	min-height: 42px;
+	padding: 6px 0;
+	border-bottom: 1px solid #eef0eb;
 }
 
-.schema-child {
-  padding-left: 18px;
+.schema-primary {
+	display: grid;
+	gap: 2px;
+	min-width: 0;
+}
+
+.schema-key,
+.schema-description,
+.schema-details {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .schema-key {
-  overflow: hidden;
-  font-family: Menlo, Monaco, Consolas, monospace;
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+	font-family: Menlo, Monaco, Consolas, monospace;
+	font-size: 13px;
 }
 
-.schema-meta {
-  color: #5f6658;
-  font-size: 12px;
-  white-space: nowrap;
+.schema-description {
+	color: #5f6658;
+	font-size: 12px;
+}
+
+.schema-details {
+	display: flex;
+	gap: 6px;
+	color: #5f6658;
+	font-size: 12px;
+}
+
+.schema-details span {
+	padding: 2px 6px;
+	border: 1px solid #d9ddd2;
+	border-radius: 4px;
+	background: #fbfcf8;
 }
 
 .error-list {

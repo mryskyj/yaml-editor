@@ -2,6 +2,7 @@ import Editor, { type OnMount } from "@monaco-editor/react";
 import { useRef, useState } from "react";
 import type * as Monaco from "monaco-editor";
 import { ErrorList, type EditorDiagnostic } from "../components/ErrorList";
+import { SchemaPane, type SchemaField } from "../components/SchemaPane";
 
 const initialYaml = `server:
   host: localhost
@@ -9,6 +10,52 @@ const initialYaml = `server:
 app:
   mode: dev
 `;
+
+const sampleSchema: SchemaField = {
+	name: "Config",
+	type: "struct",
+	required: true,
+	children: [
+		{
+			name: "server",
+			type: "struct",
+			required: true,
+			description: "server settings",
+			children: [
+				{
+					name: "host",
+					type: "string",
+					required: true,
+					description: "listen host",
+					default: "localhost",
+				},
+				{
+					name: "port",
+					type: "int",
+					required: true,
+					description: "listen port",
+					default: "8080",
+				},
+			],
+		},
+		{
+			name: "app",
+			type: "struct",
+			required: true,
+			description: "application settings",
+			children: [
+				{
+					name: "mode",
+					type: "string",
+					required: true,
+					description: "runtime mode",
+					default: "dev",
+					enum: ["dev", "stg", "prod"],
+				},
+			],
+		},
+	],
+};
 
 export function EditorShell() {
 	const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -89,32 +136,8 @@ export function EditorShell() {
             }}
           />
         </div>
-        <aside className="schema-pane">
-          <h2>Schema</h2>
-          <div className="schema-tree">
-            <div className="schema-node">
-              <span className="schema-key">server</span>
-              <span className="schema-meta">struct required</span>
-            </div>
-            <div className="schema-node schema-child">
-              <span className="schema-key">host</span>
-              <span className="schema-meta">string required</span>
-            </div>
-            <div className="schema-node schema-child">
-              <span className="schema-key">port</span>
-              <span className="schema-meta">int required</span>
-            </div>
-            <div className="schema-node">
-              <span className="schema-key">app</span>
-              <span className="schema-meta">struct required</span>
-            </div>
-            <div className="schema-node schema-child">
-              <span className="schema-key">mode</span>
-              <span className="schema-meta">dev, stg, prod</span>
-            </div>
-          </div>
-        </aside>
-      </section>
+				<SchemaPane root={sampleSchema} />
+			</section>
 			<ErrorList diagnostics={diagnostics} onSelect={handleSelectDiagnostic} />
 		</main>
 	);
