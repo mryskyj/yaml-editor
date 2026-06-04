@@ -21,7 +21,7 @@
 - [x] Completion providerを実装する
 - [x] File serviceを実装する
 - [x] App serviceを実装する
-- [ ] Wails v3アプリの最小構成を作成する
+- [x] Wails v3アプリの最小構成を作成する
 - [ ] Monaco Editor画面を実装する
 - [ ] エラー一覧表示を実装する
 - [ ] スキーマペイン表示を実装する
@@ -121,3 +121,10 @@
 - YAML補完APIを追加した
 - 登録済みスキーマ取得APIを追加した
 - App serviceの単体テストを追加した
+
+### Wails v3アプリの最小構成を作成する
+
+- Wails v3 Application API依存を追加した
+- `cmd/yaml-struct-editor/main.go` を追加した
+- App serviceをWails serviceとして登録した
+- メインウィンドウの最小設定を追加した
