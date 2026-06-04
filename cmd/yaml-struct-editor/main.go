@@ -2,9 +2,9 @@ package main
 
 import (
 	"log"
-	"os"
 
 	appservice "github.com/mryskyj/yaml-editor/app"
+	"github.com/mryskyj/yaml-editor/frontend"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -17,7 +17,7 @@ func main() {
 			application.NewService(service),
 		},
 		Assets: application.AssetOptions{
-			Handler: application.AssetFileServerFS(os.DirFS("frontend/dist")),
+			Handler: application.AssetFileServerFS(frontend.Assets()),
 		},
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
