@@ -17,7 +17,7 @@
 - [x] Schema registryを実装する
 - [x] YAML parserを実装する
 - [x] Validatorの基本診断を実装する
-- [ ] Validatorの必須項目とenum診断を実装する
+- [x] Validatorの必須項目とenum診断を実装する
 - [ ] Completion providerを実装する
 - [ ] File serviceを実装する
 - [ ] App serviceを実装する
@@ -88,3 +88,10 @@
 - ネスト不一致診断を追加した
 - struct / slice / array / map の子要素検証を追加した
 - Validator基本診断の単体テストを追加した
+
+### Validatorの必須項目とenum診断を実装する
+
+- 同一階層のキー存在確認を追加した
+- 必須項目不足診断を追加した
+- enum不一致診断を追加した
+- 必須項目不足とenum不一致の単体テストを追加した

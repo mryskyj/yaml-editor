@@ -2,6 +2,7 @@ package validator
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/mryskyj/yaml-editor/internal/schema"
 	"github.com/mryskyj/yaml-editor/internal/yamlx"
@@ -34,6 +35,13 @@ func validateNode(node *yaml.Node, field *schema.Field) []Diagnostic {
 		)}
 	}
 
+	if len(field.Enum) > 0 && !contains(field.Enum, node.Value) {
+		return []Diagnostic{nodeDiagnostic(
+			node,
+			fmt.Sprintf("key %q must be one of: %s", field.Name, strings.Join(field.Enum, ", ")),
+		)}
+	}
+
 	switch field.Type {
 	case schema.FieldTypeStruct:
 		return validateStruct(node, field)
@@ -48,9 +56,11 @@ func validateNode(node *yaml.Node, field *schema.Field) []Diagnostic {
 
 func validateStruct(node *yaml.Node, field *schema.Field) []Diagnostic {
 	var diagnostics []Diagnostic
+	seen := make(map[string]bool, len(node.Content)/2)
 	for i := 0; i+1 < len(node.Content); i += 2 {
 		keyNode := node.Content[i]
 		valueNode := node.Content[i+1]
+		seen[keyNode.Value] = true
 
 		child, ok := field.FindChild(keyNode.Value)
 		if !ok {
@@ -62,6 +72,15 @@ func validateStruct(node *yaml.Node, field *schema.Field) []Diagnostic {
 		}
 
 		diagnostics = append(diagnostics, validateNode(valueNode, child)...)
+	}
+
+	for _, child := range field.Children {
+		if child != nil && child.Required && !seen[child.Name] {
+			diagnostics = append(diagnostics, nodeDiagnostic(
+				node,
+				fmt.Sprintf("required key %q is missing", child.Name),
+			))
+		}
 	}
 
 	return diagnostics
@@ -138,4 +157,14 @@ func newDiagnostic(message string, line int, column int) Diagnostic {
 		EndLine:   line,
 		EndColumn: column + 1,
 	}
+}
+
+func contains(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+
+	return false
 }

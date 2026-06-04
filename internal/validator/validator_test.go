@@ -13,10 +13,11 @@ func validatorSchema(t *testing.T) *schema.Field {
 	type config struct {
 		Server struct {
 			Host string `yaml:"host"`
-			Port int    `yaml:"port"`
+			Port int    `yaml:"port" required:"true"`
 		} `yaml:"server"`
 		App struct {
 			Debug bool             `yaml:"debug"`
+			Mode  string           `yaml:"mode" enum:"dev,stg,prod"`
 			Ratio float64          `yaml:"ratio"`
 			Tags  []string         `yaml:"tags"`
 			Ports [2]int           `yaml:"ports"`
@@ -41,6 +42,7 @@ server:
   port: 8080
 app:
   debug: true
+  mode: dev
   ratio: 1.5
   tags:
     - web
@@ -103,6 +105,20 @@ func TestValidateMapValueMismatch(t *testing.T) {
 
 	diagnostics := Validate("app:\n  meta:\n    retries: wrong\n", validatorSchema(t))
 	assertContainsDiagnostic(t, diagnostics, "key \"\" must be int")
+}
+
+func TestValidateRequiredMissing(t *testing.T) {
+	t.Parallel()
+
+	diagnostics := Validate("server:\n  host: localhost\n", validatorSchema(t))
+	assertContainsDiagnostic(t, diagnostics, "required key \"port\" is missing")
+}
+
+func TestValidateEnumMismatch(t *testing.T) {
+	t.Parallel()
+
+	diagnostics := Validate("app:\n  mode: local\n", validatorSchema(t))
+	assertContainsDiagnostic(t, diagnostics, "key \"mode\" must be one of: dev, stg, prod")
 }
 
 func TestValidateUnsupportedYAMLFeatureDiagnostic(t *testing.T) {
