@@ -27,6 +27,21 @@ func (r *Registry) Register(v any) error {
 	return nil
 }
 
+// RegisterGoSourceFile parses and stores the root schema from a Go source file.
+func (r *Registry) RegisterGoSourceFile(path string, rootTypeName string) error {
+	if r == nil {
+		return fmt.Errorf("schema registry is nil")
+	}
+
+	root, err := ParseGoSourceFile(path, rootTypeName)
+	if err != nil {
+		return err
+	}
+
+	r.root = root
+	return nil
+}
+
 // Root returns the registered root schema.
 func (r *Registry) Root() (*Field, error) {
 	if r == nil {

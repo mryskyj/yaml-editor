@@ -30,7 +30,7 @@ func NewWithServices(files *filex.Service, registry *schema.Registry) *App {
 		registry: registry,
 	}
 	if app.registry != nil {
-		_ = app.registry.Register(sampleConfig{})
+		_ = registerStartupSchema(app.registry)
 	}
 	return app
 }
