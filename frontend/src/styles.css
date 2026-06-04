@@ -114,16 +114,63 @@ button {
 }
 
 .error-list {
-  display: flex;
-  align-items: flex-start;
-  padding: 12px;
-  border-top: 1px solid #d9ddd2;
-  background: #ffffff;
+	display: grid;
+	grid-template-rows: 28px minmax(0, 1fr);
+	min-height: 0;
+	padding: 12px;
+	border-top: 1px solid #d9ddd2;
+	background: #ffffff;
+}
+
+.error-list-header {
+	display: flex;
+	align-items: center;
 }
 
 .error-status {
-  color: #4c5546;
-  font-size: 13px;
+	color: #4c5546;
+	font-size: 13px;
+}
+
+.error-list-body {
+	display: grid;
+	align-content: start;
+	gap: 4px;
+	min-height: 0;
+	overflow: auto;
+}
+
+.error-item {
+	display: grid;
+	grid-template-columns: 72px minmax(0, 1fr);
+	gap: 8px;
+	align-items: center;
+	width: 100%;
+	min-height: 28px;
+	padding: 0 8px;
+	border: 0;
+	border-radius: 4px;
+	color: #20231f;
+	background: transparent;
+	text-align: left;
+	cursor: pointer;
+}
+
+.error-item:hover {
+	background: #f4e8e8;
+}
+
+.error-location {
+	color: #9b2f2f;
+	font-family: Menlo, Monaco, Consolas, monospace;
+	font-size: 12px;
+}
+
+.error-message {
+	overflow: hidden;
+	font-size: 13px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 @media (max-width: 760px) {

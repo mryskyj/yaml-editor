@@ -1,6 +1,7 @@
 import Editor, { type OnMount } from "@monaco-editor/react";
 import { useRef, useState } from "react";
 import type * as Monaco from "monaco-editor";
+import { ErrorList, type EditorDiagnostic } from "../components/ErrorList";
 
 const initialYaml = `server:
   host: localhost
@@ -10,8 +11,9 @@ app:
 `;
 
 export function EditorShell() {
-  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
-  const [content, setContent] = useState(initialYaml);
+	const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+	const [content, setContent] = useState(initialYaml);
+	const [diagnostics] = useState<EditorDiagnostic[]>([]);
 
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
@@ -28,7 +30,24 @@ export function EditorShell() {
     monaco.editor.setTheme("yamlStructEditor");
   };
 
-  return (
+	const handleSelectDiagnostic = (diagnostic: EditorDiagnostic) => {
+		const editor = editorRef.current;
+		if (!editor) {
+			return;
+		}
+
+		editor.revealPositionInCenter({
+			lineNumber: diagnostic.line,
+			column: diagnostic.column,
+		});
+		editor.setPosition({
+			lineNumber: diagnostic.line,
+			column: diagnostic.column,
+		});
+		editor.focus();
+	};
+
+	return (
     <main className="app-shell">
       <header className="toolbar">
         <button type="button" className="toolbar-button">
@@ -96,9 +115,7 @@ export function EditorShell() {
           </div>
         </aside>
       </section>
-      <footer className="error-list">
-        <span className="error-status">0 errors</span>
-      </footer>
-    </main>
-  );
+			<ErrorList diagnostics={diagnostics} onSelect={handleSelectDiagnostic} />
+		</main>
+	);
 }
