@@ -53,8 +53,10 @@ Backend
 ### 配布用ビルド
 
 - macOSはGoバイナリを直接配布せず、`.app` バンドルに格納する
+- macOSで生のGoバイナリをFinderから直接起動するとTerminalが表示されるため、ユーザー起動対象は `.app` とする
 - Windowsは `-ldflags="-H windowsgui"` を指定してGUIアプリとしてビルドする
 - 配布用ビルド前にfrontend buildを実行し、埋め込みアセットを最新化する
+- 配布用ビルドはWailsのproduction tagを付け、開発用ログ出力を抑制する
 
 ---
 

@@ -104,7 +104,10 @@ go test ./...
 
 ```sh
 scripts/build-macos-app.sh
+open "dist/YAML Struct Editor.app"
 ```
+
+macOSでは `./yaml-struct-editor` のような生の実行ファイルではなく、`.app` をFinderまたは `open` で起動し、Terminalが表示されないことを確認する。
 
 Windows配布用exeはWindows環境で以下を実行し、起動時にコンソールが表示されないことを確認する。
 

@@ -11,7 +11,7 @@ npm run build
 Pop-Location
 
 Push-Location $root
-go build -trimpath -ldflags="-w -s -H windowsgui" -o $exe ./cmd/yaml-struct-editor
+go build -tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui" -o $exe ./cmd/yaml-struct-editor
 Pop-Location
 
 Write-Host "Built: $exe"
