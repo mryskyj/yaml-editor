@@ -18,7 +18,7 @@
 - [x] YAML parserを実装する
 - [x] Validatorの基本診断を実装する
 - [x] Validatorの必須項目とenum診断を実装する
-- [ ] Completion providerを実装する
+- [x] Completion providerを実装する
 - [ ] File serviceを実装する
 - [ ] App serviceを実装する
 - [ ] Wails v3アプリの最小構成を作成する
@@ -95,3 +95,11 @@
 - 必須項目不足診断を追加した
 - enum不一致診断を追加した
 - 必須項目不足とenum不一致の単体テストを追加した
+
+### Completion providerを実装する
+
+- 補完候補 `completion.Candidate` を追加した
+- カーソル行のインデントから現在階層を推定する `completion.Provide` を追加した
+- YAMLキー名、Go型、説明、必須、デフォルト値、enumを候補に含めた
+- 同一階層に存在するキーを補完候補から除外した
+- Completion providerの単体テストを追加した
