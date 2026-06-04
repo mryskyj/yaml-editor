@@ -13,7 +13,7 @@
 - [x] 開発計画とテスト計画を整備する
 - [x] Goプロジェクトの最小構成を作成する
 - [x] Schema modelを実装する
-- [ ] Struct parserを実装する
+- [x] Struct parserを実装する
 - [ ] Schema registryを実装する
 - [ ] YAML parserを実装する
 - [ ] Validatorの基本診断を実装する
@@ -52,3 +52,12 @@
 - 子フィールド検索用の `FindChild` を追加した
 - スカラー型判定用の `FieldType.IsScalar` を追加した
 - Schema modelの単体テストを追加した
+
+### Struct parserを実装する
+
+- `reflect` でGo structを `schema.Field` に変換する `schema.Parse` を追加した
+- `yaml`, `required`, `desc`, `default`, `enum` タグ解析を追加した
+- struct / slice / array / map / string / bool / int系 / float系に対応した
+- `yaml:"-"` と未exported fieldを除外した
+- 未対応型を明示的なエラーとして返すようにした
+- Struct parserの単体テストを追加した
