@@ -189,16 +189,21 @@ function SchemaNode({ field, depth }: { field: SchemaField; depth: number }) {
 
 function schemaContext(root: SchemaField, content: string, cursorLine: number): SchemaContext {
   const path = inferPath(content, cursorLine);
-  const current = fieldAtPath(root, path) ?? root;
-  const parentPath = fieldAtPath(root, path) ? path.slice(0, -1) : path;
+  const matched = fieldAtPath(root, path);
+  const current = matched ?? root;
+  const currentPath = matched ? path : [];
+  const parentPath = matched ? path.slice(0, -1) : path;
   const parent = fieldAtPath(root, parentPath) ?? root;
-  const used = usedKeysAtPath(content, parentPath);
+  const currentChildren = containerChildren(current);
+  const candidateParent = currentChildren.length > 0 ? current : parent;
+  const candidateParentPath = currentChildren.length > 0 ? currentPath : parentPath;
+  const used = usedKeysAtPath(content, candidateParentPath);
 
   return {
     rootName: root.name,
-    path: fieldAtPath(root, path) ? path : parentPath,
+    path: matched ? path : parentPath,
     current,
-    siblings: containerChildren(parent).map((field) => ({
+    siblings: containerChildren(candidateParent).map((field) => ({
       field,
       used: used.has(field.name),
     })),
