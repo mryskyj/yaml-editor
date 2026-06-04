@@ -166,6 +166,8 @@
 - Wailsアプリにfrontend build出力のアセット配信設定を追加した
 - Wailsアプリの起動URLをfrontend build出力のルートに合わせた
 - frontend build出力をバイナリへ埋め込み、実行時の作業ディレクトリに依存しないようにした
+- macOS配布用にTerminalを表示せず起動できる `.app` バンドル作成スクリプトを追加した
+- Windows配布用にコンソールを表示しないGUIサブシステム指定のビルドスクリプトを追加した
 - Monaco EditorからWails API経由で補完候補と検証診断を取得するようにした
 - YAMLキー名やenum値の通常文字入力時にもMonaco補完候補を表示するようにした
 - 入力変更時にMonaco diagnosticsとエラー一覧を更新するようにした

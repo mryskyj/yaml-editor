@@ -99,3 +99,15 @@ go test ./...
 ```
 
 フロントエンド実装後は、Wails v3の開発サーバーまたはビルドコマンドで手動確認を行う。
+
+配布用ビルドの確認:
+
+```sh
+scripts/build-macos-app.sh
+```
+
+Windows配布用exeはWindows環境で以下を実行し、起動時にコンソールが表示されないことを確認する。
+
+```powershell
+scripts\build-windows.ps1
+```
