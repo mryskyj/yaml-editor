@@ -6,10 +6,64 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
 )
+
+// ParseGoSourceDir parses Go source files in a directory and converts the named root struct into a schema field.
+func ParseGoSourceDir(dir string, rootTypeName string) (*Field, error) {
+	if strings.TrimSpace(dir) == "" {
+		return nil, fmt.Errorf("schema source directory is empty")
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("read schema source directory %q: %w", dir, err)
+	}
+
+	var paths []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if filepath.Ext(name) == ".go" && !strings.HasSuffix(name, "_test.go") {
+			paths = append(paths, filepath.Join(dir, name))
+		}
+	}
+	if len(paths) == 0 {
+		return nil, fmt.Errorf("schema source directory %q has no Go source files", dir)
+	}
+
+	return ParseGoSourceFiles(paths, rootTypeName)
+}
+
+// ParseGoSourceFiles parses Go source files and converts the named root struct into a schema field.
+func ParseGoSourceFiles(paths []string, rootTypeName string) (*Field, error) {
+	rootTypeName = strings.TrimSpace(rootTypeName)
+	if rootTypeName == "" {
+		return nil, fmt.Errorf("schema root type name is empty")
+	}
+	if len(paths) == 0 {
+		return nil, fmt.Errorf("schema source files are empty")
+	}
+
+	fileSet := token.NewFileSet()
+	structs := make(map[string]*ast.StructType)
+	for _, path := range paths {
+		file, err := parser.ParseFile(fileSet, path, nil, parser.SkipObjectResolution)
+		if err != nil {
+			return nil, fmt.Errorf("parse schema source %q: %w", path, err)
+		}
+		for name, structType := range collectStructTypes(file) {
+			structs[name] = structType
+		}
+	}
+
+	return parseCollectedStructs(structs, rootTypeName)
+}
 
 // ParseGoSourceFile parses a Go source file and converts the named root struct into a schema field.
 func ParseGoSourceFile(path string, rootTypeName string) (*Field, error) {
@@ -36,7 +90,11 @@ func ParseGoSource(source []byte, rootTypeName string) (*Field, error) {
 		return nil, fmt.Errorf("parse schema source: %w", err)
 	}
 
-	sourceParser := &sourceParser{structs: collectStructTypes(file)}
+	return parseCollectedStructs(collectStructTypes(file), rootTypeName)
+}
+
+func parseCollectedStructs(structs map[string]*ast.StructType, rootTypeName string) (*Field, error) {
+	sourceParser := &sourceParser{structs: structs}
 	root, ok := sourceParser.structs[rootTypeName]
 	if !ok {
 		return nil, fmt.Errorf("schema root type %q was not found", rootTypeName)

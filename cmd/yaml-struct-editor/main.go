@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"os"
 
@@ -9,7 +10,8 @@ import (
 )
 
 func main() {
-	service := appservice.New()
+	schemaOptions := parseSchemaOptions(os.Args[1:])
+	service := appservice.NewWithSchemaOptions(schemaOptions)
 	wailsApp := application.New(application.Options{
 		Name:        "YAML Struct Editor",
 		Description: "YAML editor powered by Go struct schemas",
@@ -39,4 +41,20 @@ func main() {
 	if err := wailsApp.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func parseSchemaOptions(args []string) appservice.StartupSchemaOptions {
+	flags := flag.NewFlagSet("yaml-struct-editor", flag.ExitOnError)
+	schemaDir := flags.String("schema-dir", "", "directory containing Go schema source files")
+	schemaType := flags.String("schema-type", "", "root schema struct type name")
+	flags.Parse(args)
+
+	options := appservice.StartupSchemaOptions{
+		Dir:  *schemaDir,
+		Type: *schemaType,
+	}
+	if options.Dir == "" && flags.NArg() > 0 {
+		options.Dir = flags.Arg(0)
+	}
+	return options
 }

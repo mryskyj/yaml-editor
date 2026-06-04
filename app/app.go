@@ -19,18 +19,32 @@ type App struct {
 
 // New creates an application service instance.
 func New() *App {
+	return NewWithSchemaOptions(StartupSchemaOptions{})
+}
+
+// NewWithSchemaOptions creates an application service with startup schema options.
+func NewWithSchemaOptions(options StartupSchemaOptions) *App {
 	recentPath := filepath.Join(userConfigDir(), "yaml-struct-editor", "recent.json")
-	return NewWithServices(filex.NewService(filex.NewRecentStore(recentPath, 10)), schema.NewRegistry())
+	return NewWithServicesAndSchemaOptions(
+		filex.NewService(filex.NewRecentStore(recentPath, 10)),
+		schema.NewRegistry(),
+		options,
+	)
 }
 
 // NewWithServices creates an application service with injected dependencies.
 func NewWithServices(files *filex.Service, registry *schema.Registry) *App {
+	return NewWithServicesAndSchemaOptions(files, registry, StartupSchemaOptions{})
+}
+
+// NewWithServicesAndSchemaOptions creates an application service with injected dependencies and startup schema options.
+func NewWithServicesAndSchemaOptions(files *filex.Service, registry *schema.Registry, options StartupSchemaOptions) *App {
 	app := &App{
 		files:    files,
 		registry: registry,
 	}
 	if app.registry != nil {
-		_ = registerStartupSchema(app.registry)
+		_ = registerStartupSchema(app.registry, options)
 	}
 	return app
 }

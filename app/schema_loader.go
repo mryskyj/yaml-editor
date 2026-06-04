@@ -4,52 +4,57 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/mryskyj/yaml-editor/internal/schema"
 )
 
 const (
-	schemaFileEnv     = "YAML_STRUCT_SCHEMA_FILE"
-	schemaTypeEnv     = "YAML_STRUCT_SCHEMA_TYPE"
-	defaultSchemaFile = "schemas/sample_schema.go"
+	defaultSchemaDir  = "schemas"
 	defaultSchemaType = "Config"
 )
 
-func registerStartupSchema(registry *schema.Registry) error {
+// StartupSchemaOptions configures the schema loaded once during application startup.
+type StartupSchemaOptions struct {
+	Dir  string
+	Type string
+}
+
+func registerStartupSchema(registry *schema.Registry, options StartupSchemaOptions) error {
 	if registry == nil {
 		return fmt.Errorf("schema registry is not configured")
 	}
 
-	path, err := startupSchemaFile()
+	dir, err := startupSchemaDir(options)
 	if err != nil {
 		return err
 	}
-	return registry.RegisterGoSourceFile(path, startupSchemaType())
+	return registry.RegisterGoSourceDir(dir, startupSchemaType(options))
 }
 
-func startupSchemaFile() (string, error) {
-	if path := os.Getenv(schemaFileEnv); path != "" {
-		return path, nil
+func startupSchemaDir(options StartupSchemaOptions) (string, error) {
+	if dir := strings.TrimSpace(options.Dir); dir != "" {
+		return dir, nil
 	}
-	return findDefaultSchemaFile()
+	return findDefaultSchemaDir()
 }
 
-func startupSchemaType() string {
-	if name := os.Getenv(schemaTypeEnv); name != "" {
+func startupSchemaType(options StartupSchemaOptions) string {
+	if name := strings.TrimSpace(options.Type); name != "" {
 		return name
 	}
 	return defaultSchemaType
 }
 
-func findDefaultSchemaFile() (string, error) {
+func findDefaultSchemaDir() (string, error) {
 	dir, err := os.Getwd()
 	if err != nil {
 		return "", fmt.Errorf("resolve working directory: %w", err)
 	}
 
 	for {
-		path := filepath.Join(dir, defaultSchemaFile)
-		if _, err := os.Stat(path); err == nil {
+		path := filepath.Join(dir, defaultSchemaDir)
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
 			return path, nil
 		}
 
@@ -60,5 +65,5 @@ func findDefaultSchemaFile() (string, error) {
 		dir = parent
 	}
 
-	return "", fmt.Errorf("default schema file %q was not found", defaultSchemaFile)
+	return "", fmt.Errorf("default schema directory %q was not found", defaultSchemaDir)
 }

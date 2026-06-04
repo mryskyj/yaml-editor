@@ -8,7 +8,7 @@ import (
 	"github.com/mryskyj/yaml-editor/internal/schema"
 )
 
-func TestRegisterStartupSchemaFromEnv(t *testing.T) {
+func TestRegisterStartupSchemaFromOptions(t *testing.T) {
 	source := `package configs
 
 type CustomConfig struct {
@@ -24,11 +24,11 @@ type Database struct {
 		t.Fatalf("os.WriteFile() returned error: %v", err)
 	}
 
-	t.Setenv(schemaFileEnv, path)
-	t.Setenv(schemaTypeEnv, "CustomConfig")
-
 	registry := schema.NewRegistry()
-	if err := registerStartupSchema(registry); err != nil {
+	if err := registerStartupSchema(registry, StartupSchemaOptions{
+		Dir:  filepath.Dir(path),
+		Type: "CustomConfig",
+	}); err != nil {
 		t.Fatalf("registerStartupSchema() returned error: %v", err)
 	}
 
@@ -42,9 +42,19 @@ type Database struct {
 }
 
 func TestStartupSchemaTypeDefault(t *testing.T) {
-	t.Setenv(schemaTypeEnv, "")
-
-	if got := startupSchemaType(); got != defaultSchemaType {
+	if got := startupSchemaType(StartupSchemaOptions{}); got != defaultSchemaType {
 		t.Fatalf("startupSchemaType() = %q, want %q", got, defaultSchemaType)
+	}
+}
+
+func TestStartupSchemaDirUsesOption(t *testing.T) {
+	dir := t.TempDir()
+
+	got, err := startupSchemaDir(StartupSchemaOptions{Dir: dir})
+	if err != nil {
+		t.Fatalf("startupSchemaDir() returned error: %v", err)
+	}
+	if got != dir {
+		t.Fatalf("startupSchemaDir() = %q, want %q", got, dir)
 	}
 }

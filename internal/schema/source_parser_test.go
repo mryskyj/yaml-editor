@@ -104,6 +104,42 @@ func TestParseGoSourceFile(t *testing.T) {
 	}
 }
 
+func TestParseGoSourceDir(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "config.go"), `package configs
+
+type Config struct {
+	Server Server `+"`yaml:\"server\"`"+`
+}
+`)
+	writeFile(t, filepath.Join(dir, "server.go"), `package configs
+
+type Server struct {
+	Host string `+"`yaml:\"host\"`"+`
+}
+`)
+	writeFile(t, filepath.Join(dir, "ignored_test.go"), `package configs
+
+type Ignored struct {
+	Name string `+"`yaml:\"name\"`"+`
+}
+`)
+
+	root, err := ParseGoSourceDir(dir, "Config")
+	if err != nil {
+		t.Fatalf("ParseGoSourceDir() returned error: %v", err)
+	}
+	server := mustChild(t, root, "server")
+	if _, ok := server.FindChild("host"); !ok {
+		t.Fatal("ParseGoSourceDir() missing nested host field")
+	}
+	if _, ok := root.FindChild("name"); ok {
+		t.Fatal("ParseGoSourceDir() included *_test.go field")
+	}
+}
+
 func TestParseGoSourceRejectsMissingRootType(t *testing.T) {
 	t.Parallel()
 
@@ -144,12 +180,37 @@ func TestRegistryRegisterGoSourceFile(t *testing.T) {
 	}
 }
 
+func TestRegistryRegisterGoSourceDir(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "schema.go"), sourceParserFixture)
+
+	registry := NewRegistry()
+	if err := registry.RegisterGoSourceDir(dir, "Config"); err != nil {
+		t.Fatalf("RegisterGoSourceDir() returned error: %v", err)
+	}
+	root, err := registry.Root()
+	if err != nil {
+		t.Fatalf("Root() returned error: %v", err)
+	}
+	if _, ok := root.FindChild("server"); !ok {
+		t.Fatal("Root() missing server field")
+	}
+}
+
 func writeSchemaSource(t *testing.T, source string) string {
 	t.Helper()
 
 	path := filepath.Join(t.TempDir(), "schema.go")
+	writeFile(t, path, source)
+	return path
+}
+
+func writeFile(t *testing.T, path string, source string) {
+	t.Helper()
+
 	if err := os.WriteFile(path, []byte(source), 0o644); err != nil {
 		t.Fatalf("os.WriteFile() returned error: %v", err)
 	}
-	return path
 }
