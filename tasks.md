@@ -12,7 +12,7 @@
 
 - [x] 開発計画とテスト計画を整備する
 - [x] Goプロジェクトの最小構成を作成する
-- [ ] Schema modelを実装する
+- [x] Schema modelを実装する
 - [ ] Struct parserを実装する
 - [ ] Schema registryを実装する
 - [ ] YAML parserを実装する
@@ -44,3 +44,11 @@
 - `app` パッケージを作成した
 - `internal` 配下に設計どおりのパッケージを作成した
 - `app.New` の単体テストを追加した
+
+### Schema modelを実装する
+
+- `schema.FieldType` を定義した
+- `schema.Field` を定義した
+- 子フィールド検索用の `FindChild` を追加した
+- スカラー型判定用の `FieldType.IsScalar` を追加した
+- Schema modelの単体テストを追加した
