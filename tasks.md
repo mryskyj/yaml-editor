@@ -35,6 +35,7 @@
 - [x] GitHub Actionsリリースビルドを実装する
 - [x] Windows npmなしビルドを実装する
 - [x] FeatureブランチWindows artifactビルドを実装する
+- [x] Go toolchainを1.26.2へ更新する
 
 ---
 
@@ -265,3 +266,9 @@
 - Releaseは作成せず、GitHub Actions artifactだけをアップロードするようにした
 - workflow内で `go test ./...` を実行してからWindows exeを作成するようにした
 - 手順を `design.md` と `test_plan.md` に追記した
+
+### Go toolchainを1.26.2へ更新する
+
+- `go.mod` のGo directiveを `1.26.2` に更新した
+- GitHub Actionsの `actions/setup-go` は `go-version-file: go.mod` を参照するため、CIのGo toolchainも `1.26.2` へ更新される
+- `go test ./...` でGoテストを確認した

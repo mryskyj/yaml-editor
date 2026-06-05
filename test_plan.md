@@ -182,6 +182,13 @@ npmなしでWindows配布用exeを作る場合は、事前生成済みの `front
 scripts\build-windows-offline.ps1
 ```
 
+Go toolchainを更新した場合は、以下でGoバージョンとテストを確認する。
+
+```sh
+go version
+go test ./...
+```
+
 GitHub ActionsのReleaseビルド確認:
 
 ```sh
