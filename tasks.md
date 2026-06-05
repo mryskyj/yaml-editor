@@ -32,6 +32,7 @@
 - [ ] タブ単位の保存・検証・補完連携を実装する
 - [x] ショートカットキー要件を整理する
 - [x] ショートカットキーを実装する
+- [x] GitHub Actionsリリースビルドを実装する
 
 ---
 
@@ -237,3 +238,12 @@
 - `Cmd/Ctrl + Shift + Tab` で前のタブへ切り替えるようにした
 - `Esc` でアプリ内確認ダイアログを閉じるようにした
 - ショートカット処理をToolbarとFile Tabsの既存操作へ接続した
+
+### GitHub Actionsリリースビルドを実装する
+
+- タグ `v*` のpushで起動する `.github/workflows/release.yml` を追加した
+- macOS runnerで `scripts/build-macos-app.sh` を実行するようにした
+- Windows runnerで `scripts/build-windows.ps1` を実行するようにした
+- Releaseビルド前に `go test ./...` を実行するようにした
+- macOS `.app` とWindows `.exe` をzip化してGitHub Releaseへ添付するようにした
+- GitHub Release作成手順を `design.md` に追記した

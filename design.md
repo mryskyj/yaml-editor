@@ -58,6 +58,11 @@ Backend
 - Windowsは `-ldflags="-H windowsgui"` を指定してGUIアプリとしてビルドする
 - 配布用ビルド前にfrontend buildを実行し、埋め込みアセットを最新化する
 - 配布用ビルドはWailsのproduction tagを付け、開発用ログ出力を抑制する
+- GitHub Actionsではタグ `v*` のpushを契機にmacOSとWindowsの配布用ビルドを作成する
+- GitHub ActionsのReleaseビルドは `go test ./...` を実行してから成果物を作成する
+- macOS成果物は `YAML Struct Editor.app` を `YAML-Struct-Editor-macOS.zip` としてReleaseへ添付する
+- Windows成果物は `yaml-struct-editor.exe` を `YAML-Struct-Editor-Windows.zip` としてReleaseへ添付する
+- 署名とnotarizationは現時点では未対応とし、正式配布時の追加項目とする
 
 ---
 
@@ -515,6 +520,26 @@ Goバックエンドの業務ロジックを中心に単体テストを作成す
 - 最近開いたファイルの保存・取得
 
 フロントエンドは主要操作を手動確認または将来のE2Eテスト対象とする。
+
+---
+
+## リリース手順
+
+GitHub Releases向けの配布用ビルドはGitHub Actionsで実行する。
+
+リリース作成手順:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+タグpush後、`.github/workflows/release.yml` が以下を実行する。
+
+1. macOS runnerで `scripts/build-macos-app.sh` を実行する
+2. Windows runnerで `scripts/build-windows.ps1` を実行する
+3. 各OSの成果物をzip化する
+4. GitHub Releaseを作成し、zipを添付する
 
 ---
 
