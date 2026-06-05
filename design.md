@@ -60,6 +60,8 @@ Backend
 - 配布用ビルドはWailsのproduction tagを付け、開発用ログ出力を抑制する
 - Windows向けには、事前生成済みの `frontend/dist` を使ってnpmなしでexeを作成する `scripts/build-windows-offline.ps1` を用意する
 - npmなしのWindowsビルドはUIを再生成しないため、接続端末で作成した `frontend/dist` をそのまま埋め込む
+- オフラインWindowsビルドでは `vendor` に展開済みのGo依存を使い、`go build -mod=vendor` で依存取得を発生させない
+- `go.mod` または `go.sum` を変更した場合は、インターネット接続可能な開発端末で `go mod vendor -e` を実行し、`vendor` を更新する
 - GitHub Actionsではタグ `v*` のpushを契機にmacOSとWindowsの配布用ビルドを作成する
 - featureブランチ検証用に、`workflow_dispatch` でWindows exe artifactだけを作成するGitHub Actionsを用意する
 - GitHub ActionsのReleaseビルドは `go test ./...` を実行してから成果物を作成する

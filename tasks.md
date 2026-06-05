@@ -36,6 +36,7 @@
 - [x] GitHub Actionsリリースビルドを実装する
 - [x] Windows npmなしビルドを実装する
 - [x] FeatureブランチWindows artifactビルドを実装する
+- [x] Go依存vendor対応を実装する
 
 ---
 
@@ -278,3 +279,10 @@
 - Releaseは作成せず、GitHub Actions artifactだけをアップロードするようにした
 - workflow内で `go test ./...` を実行してからWindows exeを作成するようにした
 - 手順を `design.md` と `test_plan.md` に追記した
+
+### Go依存vendor対応を実装する
+
+- `go mod vendor -e` でGo依存を `vendor` に展開した
+- `scripts/build-windows-offline.ps1` が `vendor/modules.txt` の存在を確認するようにした
+- npmなしWindowsビルドで `go build -mod=vendor` を使うようにした
+- Go依存を事前取得済みの状態でオフライン端末へ持ち込めることをドキュメントへ追記した
