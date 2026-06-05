@@ -1,4 +1,4 @@
-import { hasUnsavedChanges, type DocumentTab } from "../editor/tabs";
+import { isUnsavedTab, type DocumentTab } from "../editor/tabs";
 
 type FileTabsProps = {
 	tabs: DocumentTab[];
@@ -12,10 +12,10 @@ export function FileTabs({ tabs, activeTabID, onSelect, onClose }: FileTabsProps
 		<div className="file-tabs" role="tablist" aria-label="Open YAML files">
 			{tabs.map((tab) => {
 				const isActive = tab.id === activeTabID;
-				const isDirty = hasUnsavedChanges(tab);
+				const isUnsaved = isUnsavedTab(tab);
 				return (
 					<div
-						className={`file-tab-wrap${isActive ? " active" : ""}${isDirty ? " dirty" : ""}`}
+						className={`file-tab-wrap${isActive ? " active" : ""}${isUnsaved ? " dirty" : ""}`}
 						key={tab.id}
 						title={tab.path || tab.name}
 					>
@@ -27,7 +27,7 @@ export function FileTabs({ tabs, activeTabID, onSelect, onClose }: FileTabsProps
 							type="button"
 						>
 							<span className="file-tab-name">{tab.name}</span>
-							{isDirty ? <span aria-label="Unsaved changes" className="file-tab-dirty" /> : null}
+							{isUnsaved ? <span aria-label="Unsaved" className="file-tab-dirty" /> : null}
 						</button>
 						<button
 							aria-label={`Close ${tab.name}`}

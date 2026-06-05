@@ -45,6 +45,17 @@ export function hasUnsavedChanges(tab: DocumentTab): boolean {
 	return tab.content !== tab.savedContent;
 }
 
+export function isUnsavedTab(tab: DocumentTab): boolean {
+	return tab.path === "" || hasUnsavedChanges(tab);
+}
+
+export function closeConfirmationMessage(tab: DocumentTab): string {
+	if (tab.path === "") {
+		return `${tab.name} はまだ保存されていません。保存せずに閉じますか？`;
+	}
+	return `${tab.name} に未保存の変更があります。保存せずに閉じますか？`;
+}
+
 export function addUntitledTab(state: TabState): TabState {
 	const nextTab = createUntitledTab(
 		`tab-${Date.now()}-${state.nextUntitledIndex}`,

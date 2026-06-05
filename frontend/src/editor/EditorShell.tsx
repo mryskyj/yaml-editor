@@ -17,8 +17,9 @@ import {
 	activeTab,
 	addUntitledTab,
 	closeTab,
+	closeConfirmationMessage,
 	createInitialTabState,
-	hasUnsavedChanges,
+	isUnsavedTab,
 	markActiveTabSaved,
 	openDocumentTab,
 	switchTab,
@@ -273,7 +274,7 @@ export function EditorShell() {
 		if (!tab) {
 			return;
 		}
-		if (hasUnsavedChanges(tab) && !window.confirm(`Close ${tab.name} without saving?`)) {
+		if (isUnsavedTab(tab) && !window.confirm(closeConfirmationMessage(tab))) {
 			return;
 		}
 
