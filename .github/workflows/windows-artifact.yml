@@ -1,0 +1,49 @@
+name: Windows Artifact
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    name: Build Windows exe artifact
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build executable
+        shell: pwsh
+        run: scripts\build-windows.ps1
+
+      - name: Archive executable
+        shell: pwsh
+        run: Compress-Archive -Path dist\yaml-struct-editor.exe -DestinationPath dist\YAML-Struct-Editor-Windows.zip -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: YAML-Struct-Editor-Windows
+          path: dist/YAML-Struct-Editor-Windows.zip
