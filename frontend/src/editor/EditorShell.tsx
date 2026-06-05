@@ -10,14 +10,18 @@ import {
 	validateYAML,
 } from "../app/api";
 import { ErrorList, type EditorDiagnostic } from "../components/ErrorList";
+import { FileTabs } from "../components/FileTabs";
 import { FileToolbar } from "../components/FileToolbar";
 import { SchemaPane, type SchemaField } from "../components/SchemaPane";
 import {
 	activeTab,
 	addUntitledTab,
+	closeTab,
 	createInitialTabState,
+	hasUnsavedChanges,
 	markActiveTabSaved,
 	openDocumentTab,
+	switchTab,
 	updateActiveContent,
 	updateTabCursor,
 	updateTabDiagnostics,
@@ -202,6 +206,19 @@ export function EditorShell() {
 		applyMarkers(diagnostics);
 	}, [diagnostics, applyMarkers]);
 
+	useEffect(() => {
+		const editor = editorRef.current;
+		if (!editor) {
+			return;
+		}
+
+		editor.setPosition({
+			lineNumber: cursor.line,
+			column: cursor.column,
+		});
+		editor.focus();
+	}, [currentTab.id, cursor.column, cursor.line]);
+
 	const handleSelectDiagnostic = (diagnostic: EditorDiagnostic) => {
 		const editor = editorRef.current;
 		if (!editor) {
@@ -247,6 +264,22 @@ export function EditorShell() {
 		}
 	};
 
+	const handleSelectTab = (tabID: string) => {
+		setTabState((state) => switchTab(state, tabID));
+	};
+
+	const handleCloseTab = (tabID: string) => {
+		const tab = tabState.tabs.find((candidate) => candidate.id === tabID);
+		if (!tab) {
+			return;
+		}
+		if (hasUnsavedChanges(tab) && !window.confirm(`Close ${tab.name} without saving?`)) {
+			return;
+		}
+
+		setTabState((state) => closeTab(state, tabID));
+	};
+
 	return (
 		<main className="app-shell">
 			<FileToolbar
@@ -258,30 +291,36 @@ export function EditorShell() {
 				onUndo={() => editorRef.current?.trigger("toolbar", "undo", null)}
 				onRedo={() => editorRef.current?.trigger("toolbar", "redo", null)}
 			/>
-      <section className="workspace">
-        <div className="editor-region">
-          <Editor
-            height="100%"
-            defaultLanguage="yaml"
-            value={content}
-            onChange={(value) => setTabState((state) => updateActiveContent(state, value ?? ""))}
-            onMount={handleMount}
-            options={{
-              automaticLayout: true,
-              folding: true,
-              fontFamily: "Menlo, Monaco, Consolas, monospace",
-              fontSize: 14,
-              lineNumbers: "on",
-              minimap: { enabled: false },
-              padding: { top: 12, bottom: 12 },
-              scrollBeyondLastLine: false,
-              quickSuggestions: { other: true, comments: false, strings: false },
-              suggestOnTriggerCharacters: true,
-              tabSize: 2,
-              wordWrap: "on",
-            }}
-          />
-        </div>
+			<FileTabs
+				activeTabID={tabState.activeTabID}
+				onClose={handleCloseTab}
+				onSelect={handleSelectTab}
+				tabs={tabState.tabs}
+			/>
+			<section className="workspace">
+				<div className="editor-region">
+					<Editor
+						height="100%"
+						defaultLanguage="yaml"
+						onChange={(value) => setTabState((state) => updateActiveContent(state, value ?? ""))}
+						onMount={handleMount}
+						options={{
+							automaticLayout: true,
+							folding: true,
+							fontFamily: "Menlo, Monaco, Consolas, monospace",
+							fontSize: 14,
+							lineNumbers: "on",
+							minimap: { enabled: false },
+							padding: { top: 12, bottom: 12 },
+							quickSuggestions: { other: true, comments: false, strings: false },
+							scrollBeyondLastLine: false,
+							suggestOnTriggerCharacters: true,
+							tabSize: 2,
+							wordWrap: "on",
+						}}
+						value={content}
+					/>
+				</div>
 				<SchemaPane root={schema} content={content} cursor={cursor} />
 			</section>
 			<ErrorList diagnostics={diagnostics} onSelect={handleSelectDiagnostic} />
