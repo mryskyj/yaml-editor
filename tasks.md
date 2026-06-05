@@ -34,6 +34,7 @@
 - [x] ショートカットキーを実装する
 - [x] GitHub Actionsリリースビルドを実装する
 - [x] Windows npmなしビルドを実装する
+- [x] FeatureブランチWindows artifactビルドを実装する
 
 ---
 
@@ -256,3 +257,11 @@
 - npmを実行せず、事前生成済み `frontend/dist` をGoのembed対象として使うようにした
 - GUIサブシステム指定 `-H windowsgui` は通常のWindowsビルドと同じにした
 - npmなしビルド手順を `design.md` と `test_plan.md` に追記した
+
+### FeatureブランチWindows artifactビルドを実装する
+
+- 手動実行用の `.github/workflows/windows-artifact.yml` を追加した
+- 任意ブランチを選んでWindows exeをartifact生成できるようにした
+- Releaseは作成せず、GitHub Actions artifactだけをアップロードするようにした
+- workflow内で `go test ./...` を実行してからWindows exeを作成するようにした
+- 手順を `design.md` と `test_plan.md` に追記した

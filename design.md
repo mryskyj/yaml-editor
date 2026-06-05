@@ -61,6 +61,7 @@ Backend
 - Windows向けには、事前生成済みの `frontend/dist` を使ってnpmなしでexeを作成する `scripts/build-windows-offline.ps1` を用意する
 - npmなしのWindowsビルドはUIを再生成しないため、接続端末で作成した `frontend/dist` をそのまま埋め込む
 - GitHub Actionsではタグ `v*` のpushを契機にmacOSとWindowsの配布用ビルドを作成する
+- featureブランチ検証用に、`workflow_dispatch` でWindows exe artifactだけを作成するGitHub Actionsを用意する
 - GitHub ActionsのReleaseビルドは `go test ./...` を実行してから成果物を作成する
 - macOS成果物は `YAML Struct Editor.app` を `YAML-Struct-Editor-macOS.zip` としてReleaseへ添付する
 - Windows成果物は `yaml-struct-editor.exe` を `YAML-Struct-Editor-Windows.zip` としてReleaseへ添付する
@@ -560,6 +561,20 @@ git push origin v0.1.0
 2. Windows runnerで `scripts/build-windows.ps1` を実行する
 3. 各OSの成果物をzip化する
 4. GitHub Releaseを作成し、zipを添付する
+
+---
+
+## FeatureブランチのWindows artifact生成
+
+Releaseを作成せずにfeatureブランチのWindows exeだけを確認したい場合は、GitHub Actionsの `Windows Artifact` workflowを手動実行する。
+
+手順:
+
+1. GitHubのActions画面で `Windows Artifact` を選ぶ
+2. `Run workflow` から対象ブランチを選ぶ
+3. workflow完了後、Artifactsから `YAML-Struct-Editor-Windows` をダウンロードする
+
+このworkflowはGitHub Releaseを作成しない。
 
 ---
 
