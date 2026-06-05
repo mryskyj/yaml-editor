@@ -15,7 +15,7 @@
 - [x] Schema modelを実装する
 - [x] Struct parserを実装する
 - [x] Schema registryを実装する
-- [ ] 外部Goソーススキーマ読み込みを実装する
+- [x] 外部Goソーススキーマ読み込みを実装する
 - [x] YAML parserを実装する
 - [x] Validatorの基本診断を実装する
 - [x] Validatorの必須項目とenum診断を実装する
@@ -80,6 +80,19 @@
 - 登録済みroot schemaを取得する `Root` を追加した
 - 未登録状態とnil receiverを明示エラーにした
 - Schema registryの単体テストを追加した
+
+### 外部Goソーススキーマ読み込みを実装する
+
+- `schemas/external-sample` に動作確認用の外部Goソーススキーマを追加した
+- `go/parser` で指定フォルダ直下の `.go` ファイルを静的解析する `schema.ParseDir` を追加した
+- `*_test.go` を外部Goソース読み込み対象外にした
+- 複数ファイルに分かれた名前付きstruct参照を解決して内部スキーマへ展開するようにした
+- `yaml`, `required`, `desc`, `default`, `enum` タグ解析を外部Goソース読み込みにも追加した
+- slice / array / map / string / bool / int系 / float系に対応した
+- import先パッケージ型、type alias、generic型、循環参照を明示エラーにした
+- `schema.Registry.RegisterFromDir` を追加した
+- 起動オプション `--schema-dir` と `--schema-type` で外部Goソーススキーマを登録できるようにした
+- 外部Goソースから展開された子フィールドが補完候補に含まれる単体テストを追加した
 
 ### YAML parserを実装する
 

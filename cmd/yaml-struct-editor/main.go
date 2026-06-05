@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 
 	appservice "github.com/mryskyj/yaml-editor/app"
@@ -9,7 +10,15 @@ import (
 )
 
 func main() {
-	service := appservice.New()
+	schemaDir := flag.String("schema-dir", "", "directory containing Go source schema files")
+	schemaType := flag.String("schema-type", "Config", "root schema struct name")
+	flag.Parse()
+
+	service, err := appservice.NewWithSchemaSource(*schemaDir, *schemaType)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	wailsApp := application.New(application.Options{
 		Name:        "YAML Struct Editor",
 		Description: "YAML editor powered by Go struct schemas",

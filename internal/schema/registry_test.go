@@ -1,6 +1,9 @@
 package schema
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 type registryConfig struct {
 	Server registryServer `yaml:"server"`
@@ -40,6 +43,26 @@ func TestRegistryRootBeforeRegister(t *testing.T) {
 	}
 	if root != nil {
 		t.Fatalf("Root() = %#v, want nil", root)
+	}
+}
+
+func TestRegistryRegisterFromDirAndRoot(t *testing.T) {
+	t.Parallel()
+
+	registry := NewRegistry()
+	if err := registry.RegisterFromDir(filepath.Join("..", "..", "schemas", "external-sample"), "Config"); err != nil {
+		t.Fatalf("RegisterFromDir() returned error: %v", err)
+	}
+
+	root, err := registry.Root()
+	if err != nil {
+		t.Fatalf("Root() returned error: %v", err)
+	}
+	if root.Name != "Config" {
+		t.Fatalf("root.Name = %q, want Config", root.Name)
+	}
+	if _, ok := root.FindChild("server"); !ok {
+		t.Fatal("Root() schema does not include server field")
 	}
 }
 
