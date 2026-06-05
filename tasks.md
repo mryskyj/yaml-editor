@@ -37,6 +37,7 @@
 - [x] Windows npmなしビルドを実装する
 - [x] FeatureブランチWindows artifactビルドを実装する
 - [x] Go依存vendor対応を実装する
+- [x] Go toolchainを1.26.2へ更新する
 
 ---
 
@@ -286,3 +287,9 @@
 - `scripts/build-windows-offline.ps1` が `vendor/modules.txt` の存在を確認するようにした
 - npmなしWindowsビルドで `go build -mod=vendor` を使うようにした
 - Go依存を事前取得済みの状態でオフライン端末へ持ち込めることをドキュメントへ追記した
+
+### Go toolchainを1.26.2へ更新する
+
+- `go.mod` のGo directiveを `1.26.2` に更新した
+- GitHub Actionsの `actions/setup-go` は `go-version-file: go.mod` を参照するため、CIのGo toolchainも `1.26.2` へ更新される
+- `go test -mod=vendor ./...` でvendor利用時のGoテストを確認した

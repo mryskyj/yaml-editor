@@ -195,6 +195,13 @@ go mod vendor -e
 go test -mod=vendor ./...
 ```
 
+Go toolchainを更新した場合は、以下でGoバージョンとvendor利用時のテストを確認する。
+
+```sh
+go version
+go test -mod=vendor ./...
+```
+
 GitHub ActionsのReleaseビルド確認:
 
 ```sh
