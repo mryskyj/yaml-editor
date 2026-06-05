@@ -18,6 +18,7 @@ type Config struct {
 	Ports []int ` + "`yaml:\"ports\"`" + `
 	Labels map[string]string ` + "`yaml:\"labels\"`" + `
 	Skip string ` + "`yaml:\"-\"`" + `
+	JSONOnly string ` + "`json:\"json_only\"`" + `
 	hidden string ` + "`yaml:\"hidden\"`" + `
 }
 
@@ -86,6 +87,9 @@ func TestParseGoSource(t *testing.T) {
 	if _, ok := root.FindChild("Skip"); ok {
 		t.Fatal("ParseGoSource() included yaml:\"-\" field")
 	}
+	if _, ok := root.FindChild("JSONOnly"); ok {
+		t.Fatal("ParseGoSource() included json-only field")
+	}
 	if _, ok := root.FindChild("hidden"); ok {
 		t.Fatal("ParseGoSource() included unexported field")
 	}
@@ -140,11 +144,52 @@ type Ignored struct {
 	}
 }
 
+func TestParseDirResolvesStructsAcrossFiles(t *testing.T) {
+	t.Parallel()
+
+	root, err := ParseDir(filepath.Join("..", "..", "schemas", "external-sample"), "Config")
+	if err != nil {
+		t.Fatalf("ParseDir() returned error: %v", err)
+	}
+
+	server := mustChild(t, root, "server")
+	host := mustChild(t, server, "host")
+	if host.Type != FieldTypeString {
+		t.Fatalf("host.Type = %q, want %q", host.Type, FieldTypeString)
+	}
+	if !host.Required {
+		t.Fatal("host.Required = false, want true")
+	}
+	if host.Default != "127.0.0.1" {
+		t.Fatalf("host.Default = %q, want 127.0.0.1", host.Default)
+	}
+
+	app := mustChild(t, root, "app")
+	mode := mustChild(t, app, "mode")
+	wantEnum := []string{"dev", "stg", "prod"}
+	if !reflect.DeepEqual(mode.Enum, wantEnum) {
+		t.Fatalf("mode.Enum = %#v, want %#v", mode.Enum, wantEnum)
+	}
+
+	weights := mustChild(t, app, "weights")
+	if weights.Type != FieldTypeSlice || weights.Item == nil || weights.Item.Type != FieldTypeFloat {
+		t.Fatalf("weights = %#v, want float slice", weights)
+	}
+}
+
 func TestParseGoSourceRejectsMissingRootType(t *testing.T) {
 	t.Parallel()
 
 	if _, err := ParseGoSource([]byte(sourceParserFixture), "Missing"); err == nil {
 		t.Fatal("ParseGoSource() error = nil, want error")
+	}
+}
+
+func TestParseDirRejectsMissingDirectory(t *testing.T) {
+	t.Parallel()
+
+	if _, err := ParseDir(filepath.Join("..", "..", "schemas", "missing"), "Config"); err == nil {
+		t.Fatal("ParseDir() error = nil, want error")
 	}
 }
 
@@ -160,6 +205,78 @@ type Config struct {
 
 	if _, err := ParseGoSource(source, "Config"); err == nil {
 		t.Fatal("ParseGoSource() error = nil, want error")
+	}
+}
+
+func TestParseDirRejectsUnsupportedExternalPackageType(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "config.go"), `package sample
+
+import "time"
+
+type Config struct {
+	Started time.Time `+"`yaml:\"started\"`"+`
+}
+`)
+
+	if _, err := ParseDir(dir, "Config"); err == nil {
+		t.Fatal("ParseDir() error = nil, want error")
+	}
+}
+
+func TestParseDirRejectsTypeAlias(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "config.go"), `package sample
+
+type Name = string
+
+type Config struct {
+	Name Name `+"`yaml:\"name\"`"+`
+}
+`)
+
+	if _, err := ParseDir(dir, "Config"); err == nil {
+		t.Fatal("ParseDir() error = nil, want error")
+	}
+}
+
+func TestParseDirRejectsGenericType(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "config.go"), `package sample
+
+type Config[T any] struct {
+	Name string `+"`yaml:\"name\"`"+`
+}
+`)
+
+	if _, err := ParseDir(dir, "Config"); err == nil {
+		t.Fatal("ParseDir() error = nil, want error")
+	}
+}
+
+func TestParseDirRejectsCircularStructReference(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "config.go"), `package sample
+
+type Config struct {
+	Server Server `+"`yaml:\"server\"`"+`
+}
+
+type Server struct {
+	Config Config `+"`yaml:\"config\"`"+`
+}
+`)
+
+	if _, err := ParseDir(dir, "Config"); err == nil {
+		t.Fatal("ParseDir() error = nil, want error")
 	}
 }
 

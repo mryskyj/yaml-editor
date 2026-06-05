@@ -86,13 +86,19 @@
 
 - `go/parser` による外部Goソースフォルダ解析を追加した
 - フォルダ内の外部Goソースファイル群から指定structを `schema.Field` に変換できるようにした
+- `schemas/external-sample` に動作確認用の外部Goソーススキーマを追加した
+- `*_test.go` を外部Goソース読み込み対象外にした
+- 複数ファイルに分かれた名前付きstruct参照を解決して内部スキーマへ展開するようにした
 - struct / structネスト / slice / array / map / string / bool / int系 / float系に対応した
 - `yaml`, `required`, `desc`, `default`, `enum` タグ解析に対応した
+- import先パッケージ型、type alias、generic型、循環参照を明示エラーにした
 - `schema.Registry.RegisterGoSourceFile` を追加した
 - `schema.Registry.RegisterGoSourceDir` を追加した
+- `schema.Registry.RegisterFromDir` を追加した
 - 起動時に `--schema-dir` と `--schema-type` からスキーマを登録できるようにした
 - 未指定時は組み込みの `app/sampleschema.Config` を読み込むようにした
 - 外部Goソーススキーマ読み込みの単体テストを追加した
+- 外部Goソースから展開された子フィールドが補完候補に含まれる単体テストを追加した
 
 ### YAML parserを実装する
 
@@ -293,3 +299,4 @@
 - `go.mod` のGo directiveを `1.26.2` に更新した
 - GitHub Actionsの `actions/setup-go` は `go-version-file: go.mod` を参照するため、CIのGo toolchainも `1.26.2` へ更新される
 - `go test -mod=vendor ./...` でvendor利用時のGoテストを確認した
+- `go test ./...` でGoテストを確認した

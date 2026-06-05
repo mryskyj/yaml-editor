@@ -57,6 +57,11 @@ func (r *Registry) RegisterGoSourceDir(dir string, rootTypeName string) error {
 	return nil
 }
 
+// RegisterFromDir parses and stores the root schema from Go source files in a directory.
+func (r *Registry) RegisterFromDir(dir string, rootTypeName string) error {
+	return r.RegisterGoSourceDir(dir, rootTypeName)
+}
+
 // Root returns the registered root schema.
 func (r *Registry) Root() (*Field, error) {
 	if r == nil {

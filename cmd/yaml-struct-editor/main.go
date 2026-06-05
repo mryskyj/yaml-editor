@@ -13,6 +13,7 @@ import (
 func main() {
 	schemaOptions := parseSchemaOptions(os.Args[1:])
 	service := appservice.NewWithSchemaOptions(schemaOptions)
+
 	wailsApp := application.New(application.Options{
 		Name:        "YAML Struct Editor",
 		Description: "YAML editor powered by Go struct schemas",

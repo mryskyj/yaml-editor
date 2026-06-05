@@ -32,6 +32,23 @@ func NewWithSchemaOptions(options StartupSchemaOptions) *App {
 	)
 }
 
+// NewWithSchemaSource creates an application service using an external Go source schema when configured.
+func NewWithSchemaSource(schemaDir string, schemaType string) (*App, error) {
+	recentPath := filepath.Join(userConfigDir(), "yaml-struct-editor", "recent.json")
+	registry := schema.NewRegistry()
+	if schemaDir != "" {
+		if err := registry.RegisterFromDir(schemaDir, schemaType); err != nil {
+			return nil, err
+		}
+		return &App{
+			files:    filex.NewService(filex.NewRecentStore(recentPath, 10)),
+			registry: registry,
+		}, nil
+	}
+
+	return NewWithServices(filex.NewService(filex.NewRecentStore(recentPath, 10)), registry), nil
+}
+
 // NewWithServices creates an application service with injected dependencies.
 func NewWithServices(files *filex.Service, registry *schema.Registry) *App {
 	return NewWithServicesAndSchemaOptions(files, registry, StartupSchemaOptions{})

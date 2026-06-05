@@ -134,6 +134,36 @@ Goコードのコンパイル、実行、動的更新は行わない。
 - `--schema-dir`: Goソースファイルを含むフォルダ
 - `--schema-type`: ルートstruct名
 
+組み込みサンプルスキーマに加えて、起動時に指定フォルダ内の外部Goソースファイルから対象structを読み込み、登録できるようにする。
+
+外部Goソースファイルは起動時に1回だけ静的解析する。
+Goコードのコンパイル、実行、動的更新は行わない。
+
+起動時の指定:
+
+- `--schema-dir`: Goソースファイルを含むフォルダ
+- `--schema-type`: ルートstruct名
+
+`--schema-dir` を指定した場合、指定フォルダ直下の複数 `.go` ファイルを読み込む。
+フォルダ内のファイルをまたいでstructや型を参照している場合も、同一フォルダ内で定義された名前付きstructであれば依存関係を解決し、YAML補完・検証・スキーマ表示に反映する。
+
+例:
+
+```go
+// config.go
+type Config struct {
+    Server Server `yaml:"server"`
+}
+
+// server.go
+type Server struct {
+    Host string `yaml:"host"`
+    Port int    `yaml:"port"`
+}
+```
+
+この場合、`server:` 配下では `host` と `port` を入力可能なキーとして提示する。
+
 対象
 
 - struct
@@ -156,6 +186,15 @@ Goコードのコンパイル、実行、動的更新は行わない。
 
 `yaml` タグがないフィールドはYAML編集用スキーマの対象外とする。
 `json` や `xml` などYAML以外のタグが付いたフィールドが混在していても、`yaml` タグがあるフィールドだけを解析対象にする。
+
+外部Goソース読み込みの対象外:
+
+- サブディレクトリ配下のGoファイル
+- import先パッケージの型
+- `pkg.Type` 形式の外部型参照
+- type aliasのみで定義された型
+- generic型
+- 循環参照するstruct
 
 ---
 
@@ -271,6 +310,8 @@ enum:"dev,stg,prod"
 - VS Code Extension
 - Goコードの動的ロード
 - 起動後のスキーマ動的更新
+- 外部Goソースの実行またはコンパイル
+- 外部Goソースの動的更新監視
 - プラグイン機構
 - 複数スキーマ切り替え
 
