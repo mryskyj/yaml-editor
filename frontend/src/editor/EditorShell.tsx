@@ -9,6 +9,7 @@ import {
 	type CompletionCandidate,
 	validateYAML,
 } from "../app/api";
+import { CloseTabDialog } from "../components/CloseTabDialog";
 import { ErrorList, type EditorDiagnostic } from "../components/ErrorList";
 import { FileTabs } from "../components/FileTabs";
 import { FileToolbar } from "../components/FileToolbar";
@@ -83,9 +84,13 @@ export function EditorShell() {
 	const cursorPositionRef = useRef<Monaco.IDisposable | null>(null);
 	const validationRequestRef = useRef(0);
 	const [tabState, setTabState] = useState<TabState>(() => createInitialTabState());
+	const [pendingCloseTabID, setPendingCloseTabID] = useState<string | null>(null);
 	const [recentFiles, setRecentFiles] = useState<string[]>(["config.yaml"]);
 	const [schema, setSchema] = useState<SchemaField>(sampleSchema);
 	const currentTab = activeTab(tabState);
+	const pendingCloseTab = pendingCloseTabID
+		? tabState.tabs.find((tab) => tab.id === pendingCloseTabID)
+		: undefined;
 	const content = currentTab.content;
 	const diagnostics = currentTab.diagnostics;
 	const cursor = currentTab.cursor;
@@ -274,11 +279,24 @@ export function EditorShell() {
 		if (!tab) {
 			return;
 		}
-		if (isUnsavedTab(tab) && !window.confirm(closeConfirmationMessage(tab))) {
+		if (isUnsavedTab(tab)) {
+			setPendingCloseTabID(tabID);
 			return;
 		}
 
 		setTabState((state) => closeTab(state, tabID));
+	};
+
+	const handleCancelCloseTab = () => {
+		setPendingCloseTabID(null);
+	};
+
+	const handleConfirmCloseTab = () => {
+		if (!pendingCloseTabID) {
+			return;
+		}
+		setTabState((state) => closeTab(state, pendingCloseTabID));
+		setPendingCloseTabID(null);
 	};
 
 	return (
@@ -325,6 +343,14 @@ export function EditorShell() {
 				<SchemaPane root={schema} content={content} cursor={cursor} />
 			</section>
 			<ErrorList diagnostics={diagnostics} onSelect={handleSelectDiagnostic} />
+			{pendingCloseTab ? (
+				<CloseTabDialog
+					fileName={pendingCloseTab.name}
+					message={closeConfirmationMessage(pendingCloseTab)}
+					onCancel={handleCancelCloseTab}
+					onConfirm={handleConfirmCloseTab}
+				/>
+			) : null}
 		</main>
 	);
 }

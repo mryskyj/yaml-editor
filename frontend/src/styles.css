@@ -165,6 +165,82 @@ button {
 	outline: 0;
 }
 
+.dialog-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 10;
+	display: grid;
+	place-items: center;
+	padding: 24px;
+	background: rgb(32 35 31 / 36%);
+}
+
+.dialog {
+	display: grid;
+	gap: 10px;
+	width: min(440px, 100%);
+	padding: 18px;
+	border: 1px solid #c7ccbf;
+	border-radius: 8px;
+	background: #ffffff;
+	box-shadow: 0 18px 48px rgb(32 35 31 / 22%);
+}
+
+.dialog h2,
+.dialog p {
+	margin: 0;
+}
+
+.dialog h2 {
+	font-size: 16px;
+	line-height: 1.35;
+}
+
+.dialog-file {
+	overflow: hidden;
+	color: #4c5546;
+	font-family: Menlo, Monaco, Consolas, monospace;
+	font-size: 13px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dialog-message {
+	color: #20231f;
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.dialog-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 6px;
+}
+
+.dialog-button {
+	height: 32px;
+	padding: 0 12px;
+	border: 1px solid #c7ccbf;
+	border-radius: 6px;
+	background: #fbfcf8;
+	cursor: pointer;
+}
+
+.dialog-button.secondary:hover {
+	background: #eef4e7;
+}
+
+.dialog-button.danger {
+	color: #ffffff;
+	border-color: #8c2f2f;
+	background: #9b2f2f;
+}
+
+.dialog-button.danger:hover {
+	background: #7f2727;
+}
+
 .toolbar-separator {
 	width: 1px;
 	height: 24px;
