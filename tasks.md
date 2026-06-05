@@ -15,6 +15,7 @@
 - [x] Schema modelを実装する
 - [x] Struct parserを実装する
 - [x] Schema registryを実装する
+- [ ] 外部Goソーススキーマ読み込みを実装する
 - [x] YAML parserを実装する
 - [x] Validatorの基本診断を実装する
 - [x] Validatorの必須項目とenum診断を実装する
