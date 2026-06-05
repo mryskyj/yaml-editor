@@ -1,6 +1,9 @@
 name: Windows Artifact
 
 on:
+  push:
+    branches:
+      - "feature/**"
   workflow_dispatch:
 
 permissions:
