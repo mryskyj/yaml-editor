@@ -3,3 +3,5 @@
 node_modules/
 frontend/dist/
 /yaml-struct-editor
+cmd/yaml-struct-editor/yaml-struct-editor
+/dist/

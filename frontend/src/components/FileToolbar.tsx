@@ -1,4 +1,4 @@
-import { type ChangeEvent, useRef } from "react";
+import { type ChangeEvent, useEffect, useRef } from "react";
 
 type FileToolbarProps = {
   currentFileName: string;
@@ -8,14 +8,33 @@ type FileToolbarProps = {
   onSave: () => void;
   onUndo: () => void;
   onRedo: () => void;
+  openRequestID: number;
 };
 
-export function FileToolbar({ currentFileName, recentFiles, onNew, onOpen, onSave, onUndo, onRedo }: FileToolbarProps) {
+export function FileToolbar({
+  currentFileName,
+  recentFiles,
+  onNew,
+  onOpen,
+  onSave,
+  onUndo,
+  onRedo,
+  openRequestID,
+}: FileToolbarProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const lastOpenRequestIDRef = useRef(openRequestID);
 
   const handleOpen = () => {
     inputRef.current?.click();
   };
+
+  useEffect(() => {
+    if (openRequestID === lastOpenRequestIDRef.current) {
+      return;
+    }
+    lastOpenRequestIDRef.current = openRequestID;
+    handleOpen();
+  }, [openRequestID]);
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

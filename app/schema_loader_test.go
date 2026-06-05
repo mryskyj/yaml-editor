@@ -50,11 +50,23 @@ func TestStartupSchemaTypeDefault(t *testing.T) {
 func TestStartupSchemaDirUsesOption(t *testing.T) {
 	dir := t.TempDir()
 
-	got, err := startupSchemaDir(StartupSchemaOptions{Dir: dir})
-	if err != nil {
-		t.Fatalf("startupSchemaDir() returned error: %v", err)
-	}
+	got := startupSchemaDir(StartupSchemaOptions{Dir: dir})
 	if got != dir {
 		t.Fatalf("startupSchemaDir() = %q, want %q", got, dir)
+	}
+}
+
+func TestRegisterStartupSchemaUsesSampleSchemaByDefault(t *testing.T) {
+	registry := schema.NewRegistry()
+	if err := registerStartupSchema(registry, StartupSchemaOptions{}); err != nil {
+		t.Fatalf("registerStartupSchema() returned error: %v", err)
+	}
+
+	root, err := registry.Root()
+	if err != nil {
+		t.Fatalf("Root() returned error: %v", err)
+	}
+	if _, ok := root.FindChild("aws"); !ok {
+		t.Fatal("Root() missing aws field from sample schema")
 	}
 }

@@ -14,11 +14,25 @@ type RuntimeModule = {
 	Call?: {
 		ByName?: (methodName: string, ...args: unknown[]) => Promise<unknown>;
 	};
+	Dialogs?: {
+		SaveFile?: (options: SaveFileDialogOptions) => Promise<string>;
+	};
 };
 
 const serviceName = "github.com/mryskyj/yaml-editor/app.App";
 
 let runtimePromise: Promise<RuntimeModule | null> | null = null;
+
+type SaveFileDialogOptions = {
+	Title?: string;
+	Filename?: string;
+	ButtonText?: string;
+	CanCreateDirectories?: boolean;
+	Filters?: Array<{
+		DisplayName?: string;
+		Pattern?: string;
+	}>;
+};
 
 export async function validateYAML(content: string): Promise<EditorDiagnostic[]> {
 	const result = await callBackend(`${serviceName}.ValidateYAML`, content);
@@ -48,10 +62,40 @@ export async function loadSchema(): Promise<SchemaField | null> {
 	return normalizeSchema(result);
 }
 
+export async function saveYAML(path: string, content: string): Promise<void> {
+	await callRequiredBackend(`${serviceName}.SaveFile`, path, content);
+}
+
+export async function chooseSavePath(filename: string): Promise<string> {
+	const runtime = await loadRuntime();
+	if (!runtime?.Dialogs?.SaveFile) {
+		throw new Error("Wails save dialog is not available");
+	}
+
+	return runtime.Dialogs.SaveFile({
+		Title: "Save YAML File",
+		Filename: filename || "config.yaml",
+		ButtonText: "Save",
+		CanCreateDirectories: true,
+		Filters: [
+			{ DisplayName: "YAML Files", Pattern: "*.yaml;*.yml" },
+			{ DisplayName: "All Files", Pattern: "*" },
+		],
+	});
+}
+
 async function callBackend(methodName: string, ...args: unknown[]): Promise<unknown> {
 	const runtime = await loadRuntime();
 	if (!runtime?.Call?.ByName) {
 		return null;
+	}
+	return runtime.Call.ByName(methodName, ...args);
+}
+
+async function callRequiredBackend(methodName: string, ...args: unknown[]): Promise<unknown> {
+	const runtime = await loadRuntime();
+	if (!runtime?.Call?.ByName) {
+		throw new Error("Wails runtime is not available");
 	}
 	return runtime.Call.ByName(methodName, ...args);
 }
@@ -98,7 +142,16 @@ function normalizeSchema(value: unknown): SchemaField {
 		default: stringValue(record.default ?? record.Default),
 		enum: arrayValue(record.enum ?? record.Enum).map(String),
 		children: arrayValue(record.children ?? record.Children).map(normalizeSchema),
+		item: optionalSchema(record.item ?? record.Item),
+		mapValue: optionalSchema(record.mapValue ?? record.MapValue),
 	};
+}
+
+function optionalSchema(value: unknown): SchemaField | undefined {
+	if (!value || typeof value !== "object") {
+		return undefined;
+	}
+	return normalizeSchema(value);
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

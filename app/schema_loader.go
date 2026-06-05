@@ -2,15 +2,13 @@ package app
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
+	"github.com/mryskyj/yaml-editor/app/sampleschema"
 	"github.com/mryskyj/yaml-editor/internal/schema"
 )
 
 const (
-	defaultSchemaDir  = "schemas"
 	defaultSchemaType = "Config"
 )
 
@@ -25,18 +23,18 @@ func registerStartupSchema(registry *schema.Registry, options StartupSchemaOptio
 		return fmt.Errorf("schema registry is not configured")
 	}
 
-	dir, err := startupSchemaDir(options)
-	if err != nil {
-		return err
+	dir := startupSchemaDir(options)
+	if dir == "" {
+		return registry.Register(sampleschema.Config{})
 	}
 	return registry.RegisterGoSourceDir(dir, startupSchemaType(options))
 }
 
-func startupSchemaDir(options StartupSchemaOptions) (string, error) {
+func startupSchemaDir(options StartupSchemaOptions) string {
 	if dir := strings.TrimSpace(options.Dir); dir != "" {
-		return dir, nil
+		return dir
 	}
-	return findDefaultSchemaDir()
+	return ""
 }
 
 func startupSchemaType(options StartupSchemaOptions) string {
@@ -44,26 +42,4 @@ func startupSchemaType(options StartupSchemaOptions) string {
 		return name
 	}
 	return defaultSchemaType
-}
-
-func findDefaultSchemaDir() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("resolve working directory: %w", err)
-	}
-
-	for {
-		path := filepath.Join(dir, defaultSchemaDir)
-		if info, err := os.Stat(path); err == nil && info.IsDir() {
-			return path, nil
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-
-	return "", fmt.Errorf("default schema directory %q was not found", defaultSchemaDir)
 }

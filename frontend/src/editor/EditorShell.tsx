@@ -1,17 +1,35 @@
 import Editor, { type OnMount } from "@monaco-editor/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type * as Monaco from "monaco-editor";
-import { completeYAML, loadSchema, type CompletionCandidate, validateYAML } from "../app/api";
+import {
+	chooseSavePath,
+	completeYAML,
+	loadSchema,
+	saveYAML,
+	type CompletionCandidate,
+	validateYAML,
+} from "../app/api";
+import { CloseTabDialog } from "../components/CloseTabDialog";
 import { ErrorList, type EditorDiagnostic } from "../components/ErrorList";
+import { FileTabs } from "../components/FileTabs";
 import { FileToolbar } from "../components/FileToolbar";
 import { SchemaPane, type SchemaField } from "../components/SchemaPane";
-
-const initialYaml = `server:
-  host: localhost
-  port: 8080
-app:
-  mode: dev
-`;
+import {
+	activeTab,
+	addUntitledTab,
+	closeTab,
+	closeConfirmationMessage,
+	createInitialTabState,
+	isUnsavedTab,
+	markActiveTabSaved,
+	openDocumentTab,
+	switchToAdjacentTab,
+	switchTab,
+	updateActiveContent,
+	updateTabCursor,
+	updateTabDiagnostics,
+	type TabState,
+} from "./tabs";
 
 const sampleSchema: SchemaField = {
 	name: "Config",
@@ -63,19 +81,28 @@ export function EditorShell() {
 	const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
 	const monacoRef = useRef<typeof Monaco | null>(null);
 	const completionProviderRef = useRef<Monaco.IDisposable | null>(null);
+	const contentChangeRef = useRef<Monaco.IDisposable | null>(null);
+	const cursorPositionRef = useRef<Monaco.IDisposable | null>(null);
 	const validationRequestRef = useRef(0);
-	const [content, setContent] = useState(initialYaml);
-	const [currentFileName, setCurrentFileName] = useState("config.yaml");
+	const [tabState, setTabState] = useState<TabState>(() => createInitialTabState());
+	const [pendingCloseTabID, setPendingCloseTabID] = useState<string | null>(null);
+	const [openRequestID, setOpenRequestID] = useState(0);
 	const [recentFiles, setRecentFiles] = useState<string[]>(["config.yaml"]);
-	const [diagnostics, setDiagnostics] = useState<EditorDiagnostic[]>([]);
 	const [schema, setSchema] = useState<SchemaField>(sampleSchema);
+	const currentTab = activeTab(tabState);
+	const pendingCloseTab = pendingCloseTabID
+		? tabState.tabs.find((tab) => tab.id === pendingCloseTabID)
+		: undefined;
+	const content = currentTab.content;
+	const diagnostics = currentTab.diagnostics;
+	const cursor = currentTab.cursor;
 
-	const runValidation = useCallback(async (nextContent: string) => {
+	const runValidation = useCallback(async (tabID: string, nextContent: string) => {
 		const requestID = validationRequestRef.current + 1;
 		validationRequestRef.current = requestID;
 		const nextDiagnostics = await validateYAML(nextContent);
 		if (validationRequestRef.current === requestID) {
-			setDiagnostics(nextDiagnostics);
+			setTabState((state) => updateTabDiagnostics(state, tabID, nextDiagnostics));
 		}
 	}, []);
 
@@ -116,6 +143,8 @@ export function EditorShell() {
 		});
 		monaco.editor.setTheme("yamlStructEditor");
 		completionProviderRef.current?.dispose();
+		contentChangeRef.current?.dispose();
+		cursorPositionRef.current?.dispose();
 		completionProviderRef.current = monaco.languages.registerCompletionItemProvider("yaml", {
 			triggerCharacters: [" ", "\n", ":", "-"],
 			provideCompletionItems: async (
@@ -134,11 +163,36 @@ export function EditorShell() {
 				};
 			},
 		});
-		void runValidation(editor.getValue());
+		contentChangeRef.current = editor.onDidChangeModelContent((event) => {
+			for (const change of event.changes) {
+				if (shouldTriggerSuggest(editor, change.text)) {
+					editor.trigger("yaml-struct-editor", "editor.action.triggerSuggest", null);
+					break;
+				}
+			}
+		});
+		cursorPositionRef.current = editor.onDidChangeCursorPosition((event) => {
+			setTabState((state) => updateTabCursor(state, activeTab(state).id, {
+				line: event.position.lineNumber,
+				column: event.position.column,
+			}));
+		});
+		const position = editor.getPosition();
+		if (position) {
+			setTabState((state) => updateTabCursor(state, activeTab(state).id, {
+				line: position.lineNumber,
+				column: position.column,
+			}));
+		}
+		void runValidation(currentTab.id, editor.getValue());
 	};
 
 	useEffect(() => {
-		return () => completionProviderRef.current?.dispose();
+		return () => {
+			completionProviderRef.current?.dispose();
+			contentChangeRef.current?.dispose();
+			cursorPositionRef.current?.dispose();
+		};
 	}, []);
 
 	useEffect(() => {
@@ -151,14 +205,27 @@ export function EditorShell() {
 
 	useEffect(() => {
 		const timerID = window.setTimeout(() => {
-			void runValidation(content);
+			void runValidation(currentTab.id, content);
 		}, 200);
 		return () => window.clearTimeout(timerID);
-	}, [content, runValidation]);
+	}, [content, currentTab.id, runValidation]);
 
 	useEffect(() => {
 		applyMarkers(diagnostics);
 	}, [diagnostics, applyMarkers]);
+
+	useEffect(() => {
+		const editor = editorRef.current;
+		if (!editor) {
+			return;
+		}
+
+		editor.setPosition({
+			lineNumber: cursor.line,
+			column: cursor.column,
+		});
+		editor.focus();
+	}, [currentTab.id, cursor.column, cursor.line]);
 
 	const handleSelectDiagnostic = (diagnostic: EditorDiagnostic) => {
 		const editor = editorRef.current;
@@ -177,65 +244,179 @@ export function EditorShell() {
 		editor.focus();
 	};
 
-	const handleNew = () => {
-		setContent("");
-		setCurrentFileName("untitled.yaml");
-	};
+	const handleNew = useCallback(() => {
+		setTabState(addUntitledTab);
+	}, []);
 
-	const handleOpen = (fileName: string, nextContent: string) => {
-		setContent(nextContent);
-		setCurrentFileName(fileName);
+	const handleRequestOpen = useCallback(() => {
+		setOpenRequestID((requestID) => requestID + 1);
+	}, []);
+
+	const handleOpen = useCallback((fileName: string, nextContent: string) => {
+		setTabState((state) => openDocumentTab(state, {
+			name: fileName,
+			content: nextContent,
+		}));
 		setRecentFiles((files) => [fileName, ...files.filter((file) => file !== fileName)].slice(0, 5));
-	};
+	}, []);
 
-	const handleSave = () => {
-		const blob = new Blob([content], { type: "text/yaml;charset=utf-8" });
-		const url = URL.createObjectURL(blob);
-		const link = document.createElement("a");
-		link.href = url;
-		link.download = currentFileName || "config.yaml";
-		link.click();
-		URL.revokeObjectURL(url);
-	};
+	const handleSave = useCallback(async () => {
+		try {
+			const tab = activeTab(tabState);
+			const path = tab.path || (await chooseSavePath(tab.name));
+			if (!path) {
+				return;
+			}
+
+			await saveYAML(path, tab.content);
+			setTabState((state) => markActiveTabSaved(state, path));
+			setRecentFiles((files) => [path, ...files.filter((file) => file !== path)].slice(0, 5));
+		} catch (error) {
+			window.alert(error instanceof Error ? error.message : "Save failed");
+		}
+	}, [tabState]);
+
+	const handleSelectTab = useCallback((tabID: string) => {
+		setTabState((state) => switchTab(state, tabID));
+	}, []);
+
+	const handleCloseTab = useCallback((tabID: string) => {
+		const tab = tabState.tabs.find((candidate) => candidate.id === tabID);
+		if (!tab) {
+			return;
+		}
+		if (isUnsavedTab(tab)) {
+			setPendingCloseTabID(tabID);
+			return;
+		}
+
+		setTabState((state) => closeTab(state, tabID));
+	}, [tabState.tabs]);
+
+	const handleCloseActiveTab = useCallback(() => {
+		handleCloseTab(activeTab(tabState).id);
+	}, [handleCloseTab, tabState]);
+
+	const handleCancelCloseTab = useCallback(() => {
+		setPendingCloseTabID(null);
+	}, []);
+
+	const handleConfirmCloseTab = useCallback(() => {
+		if (!pendingCloseTabID) {
+			return;
+		}
+		setTabState((state) => closeTab(state, pendingCloseTabID));
+		setPendingCloseTabID(null);
+	}, [pendingCloseTabID]);
+
+	const handleSelectAdjacentTab = useCallback((direction: 1 | -1) => {
+		setTabState((state) => switchToAdjacentTab(state, direction));
+	}, []);
+
+	useEffect(() => {
+		const handleShortcut = (event: KeyboardEvent) => {
+			if (event.key === "Escape" && pendingCloseTabID) {
+				event.preventDefault();
+				handleCancelCloseTab();
+				return;
+			}
+
+			if (!isPrimaryShortcut(event)) {
+				return;
+			}
+
+			const key = event.key.toLowerCase();
+			if (key === "n") {
+				event.preventDefault();
+				handleNew();
+				return;
+			}
+			if (key === "o") {
+				event.preventDefault();
+				handleRequestOpen();
+				return;
+			}
+			if (key === "s") {
+				event.preventDefault();
+				void handleSave();
+				return;
+			}
+			if (key === "w") {
+				event.preventDefault();
+				handleCloseActiveTab();
+				return;
+			}
+			if (event.key === "Tab") {
+				event.preventDefault();
+				handleSelectAdjacentTab(event.shiftKey ? -1 : 1);
+			}
+		};
+
+		window.addEventListener("keydown", handleShortcut);
+		return () => window.removeEventListener("keydown", handleShortcut);
+	}, [
+		handleCancelCloseTab,
+		handleCloseActiveTab,
+		handleNew,
+		handleRequestOpen,
+		handleSave,
+		handleSelectAdjacentTab,
+		pendingCloseTabID,
+	]);
 
 	return (
 		<main className="app-shell">
 			<FileToolbar
-				currentFileName={currentFileName}
+				currentFileName={currentTab.name}
 				recentFiles={recentFiles}
 				onNew={handleNew}
 				onOpen={handleOpen}
 				onSave={handleSave}
 				onUndo={() => editorRef.current?.trigger("toolbar", "undo", null)}
 				onRedo={() => editorRef.current?.trigger("toolbar", "redo", null)}
+				openRequestID={openRequestID}
 			/>
-      <section className="workspace">
-        <div className="editor-region">
-          <Editor
-            height="100%"
-            defaultLanguage="yaml"
-            value={content}
-            onChange={(value) => setContent(value ?? "")}
-            onMount={handleMount}
-            options={{
-              automaticLayout: true,
-              folding: true,
-              fontFamily: "Menlo, Monaco, Consolas, monospace",
-              fontSize: 14,
-              lineNumbers: "on",
-              minimap: { enabled: false },
-              padding: { top: 12, bottom: 12 },
-              scrollBeyondLastLine: false,
-              quickSuggestions: { other: true, comments: false, strings: false },
-              suggestOnTriggerCharacters: true,
-              tabSize: 2,
-              wordWrap: "on",
-            }}
-          />
-        </div>
-				<SchemaPane root={schema} />
+			<FileTabs
+				activeTabID={tabState.activeTabID}
+				onClose={handleCloseTab}
+				onSelect={handleSelectTab}
+				tabs={tabState.tabs}
+			/>
+			<section className="workspace">
+				<div className="editor-region">
+					<Editor
+						height="100%"
+						defaultLanguage="yaml"
+						onChange={(value) => setTabState((state) => updateActiveContent(state, value ?? ""))}
+						onMount={handleMount}
+						options={{
+							automaticLayout: true,
+							folding: true,
+							fontFamily: "Menlo, Monaco, Consolas, monospace",
+							fontSize: 14,
+							lineNumbers: "on",
+							minimap: { enabled: false },
+							padding: { top: 12, bottom: 12 },
+							quickSuggestions: { other: true, comments: false, strings: false },
+							scrollBeyondLastLine: false,
+							suggestOnTriggerCharacters: true,
+							tabSize: 2,
+							wordWrap: "on",
+						}}
+						value={content}
+					/>
+				</div>
+				<SchemaPane root={schema} content={content} cursor={cursor} />
 			</section>
 			<ErrorList diagnostics={diagnostics} onSelect={handleSelectDiagnostic} />
+			{pendingCloseTab ? (
+				<CloseTabDialog
+					fileName={pendingCloseTab.name}
+					message={closeConfirmationMessage(pendingCloseTab)}
+					onCancel={handleCancelCloseTab}
+					onConfirm={handleConfirmCloseTab}
+				/>
+			) : null}
 		</main>
 	);
 }
@@ -291,4 +472,42 @@ function completionDetail(candidate: CompletionCandidate): string {
 		parts.push(`default: ${candidate.default}`);
 	}
 	return parts.filter(Boolean).join(" | ");
+}
+
+function shouldTriggerSuggest(
+	editor: Monaco.editor.IStandaloneCodeEditor,
+	insertedText: string,
+): boolean {
+	if (!/^[A-Za-z0-9_-]+$/.test(insertedText)) {
+		return false;
+	}
+
+	const model = editor.getModel();
+	const position = editor.getPosition();
+	if (!model || !position) {
+		return false;
+	}
+
+	const linePrefix = model.getLineContent(position.lineNumber).slice(0, position.column - 1);
+	const trimmedPrefix = linePrefix.trimStart();
+	if (trimmedPrefix.startsWith("#")) {
+		return false;
+	}
+
+	if (!linePrefix.includes(":")) {
+		return true;
+	}
+	return /:\s*[A-Za-z0-9_-]*$/.test(linePrefix);
+}
+
+function isPrimaryShortcut(event: KeyboardEvent): boolean {
+	if (event.altKey) {
+		return false;
+	}
+
+	const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+	if (isMac) {
+		return event.metaKey && !event.ctrlKey;
+	}
+	return event.ctrlKey && !event.metaKey;
 }

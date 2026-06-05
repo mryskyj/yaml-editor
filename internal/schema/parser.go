@@ -115,7 +115,11 @@ func parseStructFields(t reflect.Type) ([]*Field, error) {
 }
 
 func yamlName(field reflect.StructField) (string, bool) {
-	tag := field.Tag.Get("yaml")
+	tag, ok := field.Tag.Lookup("yaml")
+	if !ok {
+		return "", true
+	}
+
 	name := strings.TrimSpace(strings.Split(tag, ",")[0])
 	if name == "-" {
 		return "", true
@@ -124,7 +128,7 @@ func yamlName(field reflect.StructField) (string, bool) {
 		return name, false
 	}
 
-	return field.Name, false
+	return "", true
 }
 
 func applyTags(field *Field, structField reflect.StructField) {

@@ -9,6 +9,8 @@ type parserConfig struct {
 	Server parserServer `yaml:"server" required:"true" desc:"server settings"`
 	App    parserApp    `yaml:"app"`
 	Skip   string       `yaml:"-"`
+	JSON   parserJSON   `json:"json"`
+	XML    parserXML    `xml:"xml"`
 	hidden string
 }
 
@@ -24,6 +26,14 @@ type parserApp struct {
 	Ports  [2]int              `yaml:"ports"`
 	Labels map[string]string   `yaml:"labels"`
 	Nested map[string][]string `yaml:"nested"`
+}
+
+type parserJSON struct {
+	Name string `json:"name"`
+}
+
+type parserXML struct {
+	Name string `xml:"name"`
 }
 
 func TestParseStructTagsAndChildren(t *testing.T) {
@@ -42,6 +52,12 @@ func TestParseStructTagsAndChildren(t *testing.T) {
 	}
 	if _, ok := root.FindChild("Skip"); ok {
 		t.Fatal("Parse() included yaml:\"-\" field")
+	}
+	if _, ok := root.FindChild("JSON"); ok {
+		t.Fatal("Parse() included json-only field")
+	}
+	if _, ok := root.FindChild("XML"); ok {
+		t.Fatal("Parse() included xml-only field")
 	}
 	if _, ok := root.FindChild("hidden"); ok {
 		t.Fatal("Parse() included unexported field")
