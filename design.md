@@ -58,6 +58,8 @@ Backend
 - Windowsは `-ldflags="-H windowsgui"` を指定してGUIアプリとしてビルドする
 - 配布用ビルド前にfrontend buildを実行し、埋め込みアセットを最新化する
 - 配布用ビルドはWailsのproduction tagを付け、開発用ログ出力を抑制する
+- Windows向けには、事前生成済みの `frontend/dist` を使ってnpmなしでexeを作成する `scripts/build-windows-offline.ps1` を用意する
+- npmなしのWindowsビルドはUIを再生成しないため、接続端末で作成した `frontend/dist` をそのまま埋め込む
 - GitHub Actionsではタグ `v*` のpushを契機にmacOSとWindowsの配布用ビルドを作成する
 - GitHub ActionsのReleaseビルドは `go test ./...` を実行してから成果物を作成する
 - macOS成果物は `YAML Struct Editor.app` を `YAML-Struct-Editor-macOS.zip` としてReleaseへ添付する
@@ -520,6 +522,24 @@ Goバックエンドの業務ロジックを中心に単体テストを作成す
 - 最近開いたファイルの保存・取得
 
 フロントエンドは主要操作を手動確認または将来のE2Eテスト対象とする。
+
+---
+
+## Windows npmなしビルド
+
+オフライン端末などnpm環境を作りたくないWindows環境では、接続端末で事前生成した `frontend/dist` を利用してGo buildだけを実行する。
+
+```powershell
+scripts\build-windows-offline.ps1
+```
+
+前提:
+
+- `frontend/dist/index.html` が存在する
+- Go buildに必要なGo環境がある
+- UIを変更した場合は接続端末で `npm run build` を実行し、生成済み `frontend/dist` を反映してから使う
+
+このスクリプトは `npm run build` を実行しない。
 
 ---
 

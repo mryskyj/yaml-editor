@@ -33,6 +33,7 @@
 - [x] ショートカットキー要件を整理する
 - [x] ショートカットキーを実装する
 - [x] GitHub Actionsリリースビルドを実装する
+- [x] Windows npmなしビルドを実装する
 
 ---
 
@@ -247,3 +248,11 @@
 - Releaseビルド前に `go test ./...` を実行するようにした
 - macOS `.app` とWindows `.exe` をzip化してGitHub Releaseへ添付するようにした
 - GitHub Release作成手順を `design.md` に追記した
+
+### Windows npmなしビルドを実装する
+
+- `scripts/build-windows-offline.ps1` を追加した
+- `frontend/dist/index.html` が存在することをビルド前に確認するようにした
+- npmを実行せず、事前生成済み `frontend/dist` をGoのembed対象として使うようにした
+- GUIサブシステム指定 `-H windowsgui` は通常のWindowsビルドと同じにした
+- npmなしビルド手順を `design.md` と `test_plan.md` に追記した
