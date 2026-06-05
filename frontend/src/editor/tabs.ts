@@ -129,6 +129,19 @@ export function switchTab(state: TabState, tabID: string): TabState {
 	return { ...state, activeTabID: tabID };
 }
 
+export function switchToAdjacentTab(state: TabState, direction: 1 | -1): TabState {
+	const activeIndex = state.tabs.findIndex((tab) => tab.id === state.activeTabID);
+	if (activeIndex < 0 || state.tabs.length < 2) {
+		return state;
+	}
+
+	const nextIndex = (activeIndex + direction + state.tabs.length) % state.tabs.length;
+	return {
+		...state,
+		activeTabID: state.tabs[nextIndex].id,
+	};
+}
+
 export function closeTab(state: TabState, tabID: string): TabState {
 	const tabIndex = state.tabs.findIndex((tab) => tab.id === tabID);
 	if (tabIndex < 0) {

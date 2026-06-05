@@ -23,6 +23,7 @@ import {
 	isUnsavedTab,
 	markActiveTabSaved,
 	openDocumentTab,
+	switchToAdjacentTab,
 	switchTab,
 	updateActiveContent,
 	updateTabCursor,
@@ -85,6 +86,7 @@ export function EditorShell() {
 	const validationRequestRef = useRef(0);
 	const [tabState, setTabState] = useState<TabState>(() => createInitialTabState());
 	const [pendingCloseTabID, setPendingCloseTabID] = useState<string | null>(null);
+	const [openRequestID, setOpenRequestID] = useState(0);
 	const [recentFiles, setRecentFiles] = useState<string[]>(["config.yaml"]);
 	const [schema, setSchema] = useState<SchemaField>(sampleSchema);
 	const currentTab = activeTab(tabState);
@@ -242,19 +244,23 @@ export function EditorShell() {
 		editor.focus();
 	};
 
-	const handleNew = () => {
+	const handleNew = useCallback(() => {
 		setTabState(addUntitledTab);
-	};
+	}, []);
 
-	const handleOpen = (fileName: string, nextContent: string) => {
+	const handleRequestOpen = useCallback(() => {
+		setOpenRequestID((requestID) => requestID + 1);
+	}, []);
+
+	const handleOpen = useCallback((fileName: string, nextContent: string) => {
 		setTabState((state) => openDocumentTab(state, {
 			name: fileName,
 			content: nextContent,
 		}));
 		setRecentFiles((files) => [fileName, ...files.filter((file) => file !== fileName)].slice(0, 5));
-	};
+	}, []);
 
-	const handleSave = async () => {
+	const handleSave = useCallback(async () => {
 		try {
 			const tab = activeTab(tabState);
 			const path = tab.path || (await chooseSavePath(tab.name));
@@ -268,13 +274,13 @@ export function EditorShell() {
 		} catch (error) {
 			window.alert(error instanceof Error ? error.message : "Save failed");
 		}
-	};
+	}, [tabState]);
 
-	const handleSelectTab = (tabID: string) => {
+	const handleSelectTab = useCallback((tabID: string) => {
 		setTabState((state) => switchTab(state, tabID));
-	};
+	}, []);
 
-	const handleCloseTab = (tabID: string) => {
+	const handleCloseTab = useCallback((tabID: string) => {
 		const tab = tabState.tabs.find((candidate) => candidate.id === tabID);
 		if (!tab) {
 			return;
@@ -285,19 +291,78 @@ export function EditorShell() {
 		}
 
 		setTabState((state) => closeTab(state, tabID));
-	};
+	}, [tabState.tabs]);
 
-	const handleCancelCloseTab = () => {
+	const handleCloseActiveTab = useCallback(() => {
+		handleCloseTab(activeTab(tabState).id);
+	}, [handleCloseTab, tabState]);
+
+	const handleCancelCloseTab = useCallback(() => {
 		setPendingCloseTabID(null);
-	};
+	}, []);
 
-	const handleConfirmCloseTab = () => {
+	const handleConfirmCloseTab = useCallback(() => {
 		if (!pendingCloseTabID) {
 			return;
 		}
 		setTabState((state) => closeTab(state, pendingCloseTabID));
 		setPendingCloseTabID(null);
-	};
+	}, [pendingCloseTabID]);
+
+	const handleSelectAdjacentTab = useCallback((direction: 1 | -1) => {
+		setTabState((state) => switchToAdjacentTab(state, direction));
+	}, []);
+
+	useEffect(() => {
+		const handleShortcut = (event: KeyboardEvent) => {
+			if (event.key === "Escape" && pendingCloseTabID) {
+				event.preventDefault();
+				handleCancelCloseTab();
+				return;
+			}
+
+			if (!isPrimaryShortcut(event)) {
+				return;
+			}
+
+			const key = event.key.toLowerCase();
+			if (key === "n") {
+				event.preventDefault();
+				handleNew();
+				return;
+			}
+			if (key === "o") {
+				event.preventDefault();
+				handleRequestOpen();
+				return;
+			}
+			if (key === "s") {
+				event.preventDefault();
+				void handleSave();
+				return;
+			}
+			if (key === "w") {
+				event.preventDefault();
+				handleCloseActiveTab();
+				return;
+			}
+			if (event.key === "Tab") {
+				event.preventDefault();
+				handleSelectAdjacentTab(event.shiftKey ? -1 : 1);
+			}
+		};
+
+		window.addEventListener("keydown", handleShortcut);
+		return () => window.removeEventListener("keydown", handleShortcut);
+	}, [
+		handleCancelCloseTab,
+		handleCloseActiveTab,
+		handleNew,
+		handleRequestOpen,
+		handleSave,
+		handleSelectAdjacentTab,
+		pendingCloseTabID,
+	]);
 
 	return (
 		<main className="app-shell">
@@ -309,6 +374,7 @@ export function EditorShell() {
 				onSave={handleSave}
 				onUndo={() => editorRef.current?.trigger("toolbar", "undo", null)}
 				onRedo={() => editorRef.current?.trigger("toolbar", "redo", null)}
+				openRequestID={openRequestID}
 			/>
 			<FileTabs
 				activeTabID={tabState.activeTabID}
@@ -432,4 +498,16 @@ function shouldTriggerSuggest(
 		return true;
 	}
 	return /:\s*[A-Za-z0-9_-]*$/.test(linePrefix);
+}
+
+function isPrimaryShortcut(event: KeyboardEvent): boolean {
+	if (event.altKey) {
+		return false;
+	}
+
+	const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+	if (isMac) {
+		return event.metaKey && !event.ctrlKey;
+	}
+	return event.ctrlKey && !event.metaKey;
 }
