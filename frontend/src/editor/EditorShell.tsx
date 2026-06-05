@@ -12,6 +12,17 @@ import {
 import { ErrorList, type EditorDiagnostic } from "../components/ErrorList";
 import { FileToolbar } from "../components/FileToolbar";
 import { SchemaPane, type SchemaField } from "../components/SchemaPane";
+import {
+	activeTab,
+	addUntitledTab,
+	createInitialTabState,
+	markActiveTabSaved,
+	openDocumentTab,
+	updateActiveContent,
+	updateTabCursor,
+	updateTabDiagnostics,
+	type TabState,
+} from "./tabs";
 
 const sampleSchema: SchemaField = {
 	name: "Config",
@@ -66,20 +77,20 @@ export function EditorShell() {
 	const contentChangeRef = useRef<Monaco.IDisposable | null>(null);
 	const cursorPositionRef = useRef<Monaco.IDisposable | null>(null);
 	const validationRequestRef = useRef(0);
-	const [content, setContent] = useState("");
-	const [currentFileName, setCurrentFileName] = useState("untitled.yaml");
-	const [currentFilePath, setCurrentFilePath] = useState("");
+	const [tabState, setTabState] = useState<TabState>(() => createInitialTabState());
 	const [recentFiles, setRecentFiles] = useState<string[]>(["config.yaml"]);
-	const [diagnostics, setDiagnostics] = useState<EditorDiagnostic[]>([]);
 	const [schema, setSchema] = useState<SchemaField>(sampleSchema);
-	const [cursor, setCursor] = useState({ line: 1, column: 1 });
+	const currentTab = activeTab(tabState);
+	const content = currentTab.content;
+	const diagnostics = currentTab.diagnostics;
+	const cursor = currentTab.cursor;
 
-	const runValidation = useCallback(async (nextContent: string) => {
+	const runValidation = useCallback(async (tabID: string, nextContent: string) => {
 		const requestID = validationRequestRef.current + 1;
 		validationRequestRef.current = requestID;
 		const nextDiagnostics = await validateYAML(nextContent);
 		if (validationRequestRef.current === requestID) {
-			setDiagnostics(nextDiagnostics);
+			setTabState((state) => updateTabDiagnostics(state, tabID, nextDiagnostics));
 		}
 	}, []);
 
@@ -149,19 +160,19 @@ export function EditorShell() {
 			}
 		});
 		cursorPositionRef.current = editor.onDidChangeCursorPosition((event) => {
-			setCursor({
+			setTabState((state) => updateTabCursor(state, activeTab(state).id, {
 				line: event.position.lineNumber,
 				column: event.position.column,
-			});
+			}));
 		});
 		const position = editor.getPosition();
 		if (position) {
-			setCursor({
+			setTabState((state) => updateTabCursor(state, activeTab(state).id, {
 				line: position.lineNumber,
 				column: position.column,
-			});
+			}));
 		}
-		void runValidation(editor.getValue());
+		void runValidation(currentTab.id, editor.getValue());
 	};
 
 	useEffect(() => {
@@ -182,10 +193,10 @@ export function EditorShell() {
 
 	useEffect(() => {
 		const timerID = window.setTimeout(() => {
-			void runValidation(content);
+			void runValidation(currentTab.id, content);
 		}, 200);
 		return () => window.clearTimeout(timerID);
-	}, [content, runValidation]);
+	}, [content, currentTab.id, runValidation]);
 
 	useEffect(() => {
 		applyMarkers(diagnostics);
@@ -209,28 +220,27 @@ export function EditorShell() {
 	};
 
 	const handleNew = () => {
-		setContent("");
-		setCurrentFileName("untitled.yaml");
-		setCurrentFilePath("");
+		setTabState(addUntitledTab);
 	};
 
 	const handleOpen = (fileName: string, nextContent: string) => {
-		setContent(nextContent);
-		setCurrentFileName(fileName);
-		setCurrentFilePath("");
+		setTabState((state) => openDocumentTab(state, {
+			name: fileName,
+			content: nextContent,
+		}));
 		setRecentFiles((files) => [fileName, ...files.filter((file) => file !== fileName)].slice(0, 5));
 	};
 
 	const handleSave = async () => {
 		try {
-			const path = currentFilePath || (await chooseSavePath(currentFileName));
+			const tab = activeTab(tabState);
+			const path = tab.path || (await chooseSavePath(tab.name));
 			if (!path) {
 				return;
 			}
 
-			await saveYAML(path, content);
-			setCurrentFilePath(path);
-			setCurrentFileName(fileNameFromPath(path));
+			await saveYAML(path, tab.content);
+			setTabState((state) => markActiveTabSaved(state, path));
 			setRecentFiles((files) => [path, ...files.filter((file) => file !== path)].slice(0, 5));
 		} catch (error) {
 			window.alert(error instanceof Error ? error.message : "Save failed");
@@ -240,7 +250,7 @@ export function EditorShell() {
 	return (
 		<main className="app-shell">
 			<FileToolbar
-				currentFileName={currentFileName}
+				currentFileName={currentTab.name}
 				recentFiles={recentFiles}
 				onNew={handleNew}
 				onOpen={handleOpen}
@@ -254,7 +264,7 @@ export function EditorShell() {
             height="100%"
             defaultLanguage="yaml"
             value={content}
-            onChange={(value) => setContent(value ?? "")}
+            onChange={(value) => setTabState((state) => updateActiveContent(state, value ?? ""))}
             onMount={handleMount}
             options={{
               automaticLayout: true,
@@ -277,12 +287,6 @@ export function EditorShell() {
 			<ErrorList diagnostics={diagnostics} onSelect={handleSelectDiagnostic} />
 		</main>
 	);
-}
-
-function fileNameFromPath(path: string): string {
-	const normalized = path.replace(/\\/g, "/");
-	const parts = normalized.split("/").filter(Boolean);
-	return parts.at(-1) ?? path;
 }
 
 function toCompletionItem(
