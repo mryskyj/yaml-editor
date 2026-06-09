@@ -28,6 +28,7 @@ import {
 	sanitizeScheduleTemplate,
 	scheduleTemplateInsertion,
 } from "./scheduleTemplates";
+import { stepTemplateInsertion } from "./stepTemplates";
 import {
 	activeTab,
 	addUntitledTab,
@@ -566,7 +567,8 @@ function insertCommonTemplate(
 
 	const lines = model.getValue().split(/\r?\n/);
 	const insertion = dateTemplateInsertion(lines, position.lineNumber)
-		?? scheduleTemplateInsertion(lines, position.lineNumber, scheduleTemplate);
+		?? scheduleTemplateInsertion(lines, position.lineNumber, scheduleTemplate)
+		?? stepTemplateInsertion(lines, position.lineNumber);
 	if (!insertion) {
 		return false;
 	}

@@ -265,6 +265,9 @@ schedules:
 schedule情報は通常変更しないが、必要に応じてアプリ内メニューから登録内容を変更できる。
 変更後の登録内容は、次回以降の `schedules:` 改行時の自動入力に使う。
 
+組み込みRootスキーマの `scenario.steps` では、step情報をリストで表す。
+`steps:` で改行した場合は、最初のstep要素として `id`, `name`, `day_ref`, `schedule_ref`, `action.tool`, `action.args` を自動入力する。
+
 ---
 
 ### バリデーション

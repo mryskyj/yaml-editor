@@ -46,6 +46,7 @@
 - [x] `common.dates` の次day入力を補完候補方式へ変更する
 - [x] エディタのコピー・切り取り・貼り付け操作を実装する
 - [x] `Shift + 矢印キー` の範囲選択を実装する
+- [x] `scenario.steps` のstepテンプレート自動入力を実装する
 
 ---
 
@@ -385,3 +386,9 @@
 - Monaco Editorのkeydownで `Shift + ←/→/↑/↓` の選択範囲終端を明示更新するようにした
 - カーソル位置復元はタブ切り替え時だけ実行し、範囲選択中に選択が解除されないようにした
 - 範囲選択したテキストをCopy、Cut、Pasteの対象にできる仕様として記録した
+
+### `scenario.steps` のstepテンプレート自動入力を実装する
+
+- `steps:` 改行時に最初のstepリスト要素を自動入力するようにした
+- 自動入力するstepテンプレートに `id`, `name`, `day_ref`, `schedule_ref`, `action.tool`, `action.args` を含めた
+- 既に `steps` 配下にリスト要素がある場合は重複挿入しないようにした
