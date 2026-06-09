@@ -125,7 +125,6 @@ func TestValidateUnsupportedYAMLFeatureDiagnostic(t *testing.T) {
 	t.Parallel()
 
 	diagnostics := Validate("defaults: &defaults\n  host: localhost\nserver: *defaults\n", validatorSchema(t))
-	assertContainsDiagnostic(t, diagnostics, "YAML Anchor is not supported")
 	assertContainsDiagnostic(t, diagnostics, "YAML Alias is not supported")
 }
 

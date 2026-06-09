@@ -6,6 +6,7 @@ type FileToolbarProps = {
   onNew: () => void;
   onOpen: (fileName: string, content: string) => void;
   onSave: () => void;
+  onSchedules: () => void;
   onUndo: () => void;
   onRedo: () => void;
   openRequestID: number;
@@ -17,6 +18,7 @@ export function FileToolbar({
   onNew,
   onOpen,
   onSave,
+  onSchedules,
   onUndo,
   onRedo,
   openRequestID,
@@ -57,6 +59,9 @@ export function FileToolbar({
       </button>
       <button type="button" className="toolbar-button" onClick={onSave}>
         Save
+      </button>
+      <button type="button" className="toolbar-button" onClick={onSchedules}>
+        Schedules
       </button>
       <select className="recent-select" value="" onChange={(event) => event.target.value && handleOpen()}>
         <option value="">Recent</option>

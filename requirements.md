@@ -237,6 +237,20 @@ steps:
 `dayN.holiday` に `true` または `false` を入力して改行した場合は、次の `dayN+1` とその配下の `date`, `holiday` を自動入力する。
 直前の `dayN.date` が `YYYY-MM-DD` 形式の場合、次の `date` には翌日を設定する。
 
+組み込みRootスキーマの `common.schedules` では、実行情報を `run1`, `run2` のように連番キーで表す。
+`schedules:` で改行した場合は、登録済みのschedule情報をすべて自動入力する。
+初期値は以下とする。
+
+```yaml
+schedules:
+    run1: &run1 1 #BOD
+    run2: &run2 2 #あいうえお
+    run3: &run3 3 #かきくけこ
+```
+
+schedule情報は通常変更しないが、必要に応じてアプリ内メニューから登録内容を変更できる。
+変更後の登録内容は、次回以降の `schedules:` 改行時の自動入力に使う。
+
 ---
 
 ### バリデーション
@@ -330,8 +344,7 @@ enum:"dev,stg,prod"
 以下は実装しない。
 
 - JSON Schema生成
-- YAML Anchor
-- YAML Alias
+- YAML Aliasによる参照
 - Language Server
 - VS Code Extension
 - Goコードの動的ロード
@@ -389,6 +402,15 @@ dates:
     day2:
         date: "2026-03-02"
         holiday: false
+```
+
+`common` の `schedules` は、以下のように `runN` 配下へAnchor付きの実行番号を持つ。
+
+```yaml
+schedules:
+    run1: &run1 1 #BOD
+    run2: &run2 2 #あいうえお
+    run3: &run3 3 #かきくけこ
 ```
 
 `scenario` の例:

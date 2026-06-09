@@ -101,6 +101,59 @@ func TestAppSchemaCommonDatesUseDayDateHolidayStructure(t *testing.T) {
 	}
 }
 
+func TestAppSchemaCommonSchedulesUseRunScalarStructure(t *testing.T) {
+	t.Parallel()
+
+	app := testApp(t)
+	root, err := app.Schema()
+	if err != nil {
+		t.Fatalf("Schema() returned error: %v", err)
+	}
+
+	common, ok := root.FindChild("common")
+	if !ok {
+		t.Fatal("Schema() missing common field")
+	}
+	schedules, ok := common.FindChild("schedules")
+	if !ok {
+		t.Fatal("Schema() missing common.schedules field")
+	}
+	if schedules.Type != schema.FieldTypeMap {
+		t.Fatalf("common.schedules Type = %q, want map", schedules.Type)
+	}
+	if schedules.MapValue == nil || schedules.MapValue.Type != schema.FieldTypeInt {
+		t.Fatalf("common.schedules MapValue = %#v, want int", schedules.MapValue)
+	}
+}
+
+func TestAppValidateCommonSchedulesAllowsAnchoredRuns(t *testing.T) {
+	t.Parallel()
+
+	app := testApp(t)
+	diagnostics, err := app.ValidateYAML(`
+schema_version: v1
+common:
+  schema_version: v1
+  dates: {}
+  schedules:
+    run1: &run1 1 #BOD
+    run2: &run2 2 #あいうえお
+    run3: &run3 3 #かきくけこ
+scenario:
+  id: 1
+  name: test
+  description: test
+  docs: []
+  steps: []
+`)
+	if err != nil {
+		t.Fatalf("ValidateYAML() returned error: %v", err)
+	}
+	if len(diagnostics) != 0 {
+		t.Fatalf("ValidateYAML() diagnostics = %#v, want none", diagnostics)
+	}
+}
+
 func TestNewWithSchemaSourceAutoDetectsAlternateSample(t *testing.T) {
 	t.Parallel()
 

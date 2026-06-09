@@ -42,22 +42,14 @@ func Parse(source string) (*Document, []Diagnostic) {
 	return document, UnsupportedDiagnostics(&root)
 }
 
-// UnsupportedDiagnostics reports MVP-unsupported YAML features in a parsed node tree.
+// UnsupportedDiagnostics reports unsupported YAML features in a parsed node tree.
 func UnsupportedDiagnostics(root *yaml.Node) []Diagnostic {
 	var diagnostics []Diagnostic
 	walk(root, func(node *yaml.Node) {
-		switch {
-		case node.Kind == yaml.AliasNode:
+		if node.Kind == yaml.AliasNode {
 			position := NodePosition(node)
 			diagnostics = append(diagnostics, Diagnostic{
 				Message: "YAML Alias is not supported",
-				Line:    position.Line,
-				Column:  position.Column,
-			})
-		case node.Anchor != "":
-			position := NodePosition(node)
-			diagnostics = append(diagnostics, Diagnostic{
-				Message: "YAML Anchor is not supported",
 				Line:    position.Line,
 				Column:  position.Column,
 			})

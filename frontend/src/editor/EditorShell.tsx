@@ -13,8 +13,14 @@ import { CloseTabDialog } from "../components/CloseTabDialog";
 import { ErrorList, type EditorDiagnostic } from "../components/ErrorList";
 import { FileTabs } from "../components/FileTabs";
 import { FileToolbar } from "../components/FileToolbar";
+import { ScheduleMenu } from "../components/ScheduleMenu";
 import { SchemaPane, type SchemaField } from "../components/SchemaPane";
 import { dateTemplateInsertion } from "./dateTemplates";
+import {
+	defaultScheduleTemplate,
+	sanitizeScheduleTemplate,
+	scheduleTemplateInsertion,
+} from "./scheduleTemplates";
 import {
 	activeTab,
 	addUntitledTab,
@@ -31,6 +37,8 @@ import {
 	updateTabDiagnostics,
 	type TabState,
 } from "./tabs";
+
+const scheduleTemplateStorageKey = "yaml-struct-editor.schedule-template";
 
 const sampleSchema: SchemaField = {
 	name: "Config",
@@ -88,6 +96,9 @@ export function EditorShell() {
 	const validationRequestRef = useRef(0);
 	const [tabState, setTabState] = useState<TabState>(() => createInitialTabState());
 	const [pendingCloseTabID, setPendingCloseTabID] = useState<string | null>(null);
+	const [isScheduleMenuOpen, setIsScheduleMenuOpen] = useState(false);
+	const [scheduleTemplate, setScheduleTemplate] = useState(loadScheduleTemplate);
+	const scheduleTemplateRef = useRef(scheduleTemplate);
 	const [openRequestID, setOpenRequestID] = useState(0);
 	const [recentFiles, setRecentFiles] = useState<string[]>(["config.yaml"]);
 	const [schema, setSchema] = useState<SchemaField>(sampleSchema);
@@ -168,7 +179,7 @@ export function EditorShell() {
 		contentChangeRef.current = editor.onDidChangeModelContent((event) => {
 			if (!automaticEditRef.current) {
 				for (const change of event.changes) {
-					if (change.text.includes("\n") && insertDateTemplate(monaco, editor, automaticEditRef)) {
+					if (change.text.includes("\n") && insertCommonTemplate(monaco, editor, automaticEditRef, scheduleTemplateRef.current)) {
 						return;
 					}
 				}
@@ -212,6 +223,10 @@ export function EditorShell() {
 			}
 		});
 	}, []);
+
+	useEffect(() => {
+		scheduleTemplateRef.current = scheduleTemplate;
+	}, [scheduleTemplate]);
 
 	useEffect(() => {
 		const timerID = window.setTimeout(() => {
@@ -285,6 +300,18 @@ export function EditorShell() {
 			window.alert(error instanceof Error ? error.message : "Save failed");
 		}
 	}, [tabState]);
+
+	const handleSaveScheduleTemplate = useCallback((nextTemplate: string) => {
+		const sanitized = sanitizeScheduleTemplate(nextTemplate);
+		setScheduleTemplate(sanitized);
+		window.localStorage.setItem(scheduleTemplateStorageKey, sanitized);
+		setIsScheduleMenuOpen(false);
+	}, []);
+
+	const handleResetScheduleTemplate = useCallback(() => {
+		setScheduleTemplate(defaultScheduleTemplate);
+		window.localStorage.removeItem(scheduleTemplateStorageKey);
+	}, []);
 
 	const handleSelectTab = useCallback((tabID: string) => {
 		setTabState((state) => switchTab(state, tabID));
@@ -382,6 +409,7 @@ export function EditorShell() {
 				onNew={handleNew}
 				onOpen={handleOpen}
 				onSave={handleSave}
+				onSchedules={() => setIsScheduleMenuOpen(true)}
 				onUndo={() => editorRef.current?.trigger("toolbar", "undo", null)}
 				onRedo={() => editorRef.current?.trigger("toolbar", "redo", null)}
 				openRequestID={openRequestID}
@@ -427,14 +455,23 @@ export function EditorShell() {
 					onConfirm={handleConfirmCloseTab}
 				/>
 			) : null}
+			{isScheduleMenuOpen ? (
+				<ScheduleMenu
+					template={scheduleTemplate}
+					onCancel={() => setIsScheduleMenuOpen(false)}
+					onReset={handleResetScheduleTemplate}
+					onSave={handleSaveScheduleTemplate}
+				/>
+			) : null}
 		</main>
 	);
 }
 
-function insertDateTemplate(
+function insertCommonTemplate(
 	monaco: typeof Monaco,
 	editor: Monaco.editor.IStandaloneCodeEditor,
 	automaticEditRef: MutableRefObject<boolean>,
+	scheduleTemplate: string,
 ): boolean {
 	const model = editor.getModel();
 	const position = editor.getPosition();
@@ -443,7 +480,8 @@ function insertDateTemplate(
 	}
 
 	const lines = model.getValue().split(/\r?\n/);
-	const insertion = dateTemplateInsertion(lines, position.lineNumber);
+	const insertion = dateTemplateInsertion(lines, position.lineNumber)
+		?? scheduleTemplateInsertion(lines, position.lineNumber, scheduleTemplate);
 	if (!insertion) {
 		return false;
 	}
@@ -463,6 +501,15 @@ function insertDateTemplate(
 		column: insertion.cursorColumn,
 	});
 	return true;
+}
+
+function loadScheduleTemplate(): string {
+	const stored = window.localStorage.getItem(scheduleTemplateStorageKey);
+	if (!stored) {
+		return defaultScheduleTemplate;
+	}
+	const sanitized = sanitizeScheduleTemplate(stored);
+	return sanitized === "" ? defaultScheduleTemplate : sanitized;
 }
 
 function toCompletionItem(

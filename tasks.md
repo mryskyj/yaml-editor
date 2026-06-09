@@ -42,6 +42,7 @@
 - [x] Go依存ライブラリをvendor化する
 - [x] 組み込みRootスキーマを `app/rootschema.File` に切り替える
 - [x] `common.dates` の `dayN` 自動入力を実装する
+- [x] `common.schedules` の自動入力と編集メニューを実装する
 
 ---
 
@@ -123,7 +124,7 @@
 - YAML文字列を `yaml.Node` に解析する `yamlx.Parse` を追加した
 - YAML構文エラーを行番号・列番号付き診断へ変換した
 - `yaml.Node` の位置情報を取得する `NodePosition` を追加した
-- YAML Anchor / AliasをMVP未対応診断として検出した
+- YAML Alias参照をMVP未対応診断として検出した
 - YAML parserの単体テストを追加した
 
 ### Validatorの基本診断を実装する
@@ -348,3 +349,12 @@
 - `dayN.holiday` 改行時に次の `dayN+1` ブロックを自動入力するようにした
 - `YYYY-MM-DD` 形式の直前日付から次の日付を設定するようにした
 - App serviceのRootスキーマテストに `common.dates` の構造確認を追加した
+
+### `common.schedules` の自動入力と編集メニューを実装する
+
+- `common.schedules` を `runN` キーとAnchor付きint値のmapとして扱う仕様へ更新した
+- `schedules:` 改行時に登録済みscheduleテンプレート全体を自動入力するようにした
+- Toolbarに `Schedules` メニューを追加し、scheduleテンプレートを編集・保存・初期化できるようにした
+- scheduleテンプレートの保存先をブラウザlocalStorageにした
+- YAML Anchor定義は許可し、Alias参照のみ未対応診断として残した
+- App serviceのRootスキーマとAnchor付きschedule YAMLの検証テストを追加した

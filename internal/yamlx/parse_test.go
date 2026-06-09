@@ -50,15 +50,15 @@ func TestParseSyntaxError(t *testing.T) {
 	}
 }
 
-func TestParseDetectsAnchorAndAlias(t *testing.T) {
+func TestParseAllowsAnchorAndDetectsAlias(t *testing.T) {
 	t.Parallel()
 
 	document, diagnostics := Parse("defaults: &defaults\n  host: localhost\nserver: *defaults\n")
 	if document == nil {
 		t.Fatal("Parse() document = nil")
 	}
-	if len(diagnostics) != 2 {
-		t.Fatalf("Parse() diagnostics count = %d, want 2: %#v", len(diagnostics), diagnostics)
+	if len(diagnostics) != 1 {
+		t.Fatalf("Parse() diagnostics count = %d, want 1: %#v", len(diagnostics), diagnostics)
 	}
 
 	messages := map[string]bool{}
@@ -69,9 +69,6 @@ func TestParseDetectsAnchorAndAlias(t *testing.T) {
 		messages[diagnostic.Message] = true
 	}
 
-	if !messages["YAML Anchor is not supported"] {
-		t.Fatalf("missing anchor diagnostic: %#v", diagnostics)
-	}
 	if !messages["YAML Alias is not supported"] {
 		t.Fatalf("missing alias diagnostic: %#v", diagnostics)
 	}
