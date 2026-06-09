@@ -58,12 +58,13 @@ Backend
 - Windowsは `-ldflags="-H windowsgui"` を指定してGUIアプリとしてビルドする
 - 配布用ビルド前にfrontend buildを実行し、埋め込みアセットを最新化する
 - frontend buildではMonaco Editorの `min/vs` アセットを `frontend/dist/vs` にコピーし、production UIは `/vs` から読み込む
+- Go依存ライブラリは `vendor/` に同梱し、配布用ビルドでは `-mod=vendor` を指定してリポジトリ内の依存だけを使う
 - 配布用ビルドはWailsのproduction tagを付け、開発用ログ出力を抑制する
 - Windows向けには、事前生成済みの `frontend/dist` を使ってnpmなしでexeを作成する `scripts/build-windows-offline.ps1` を用意する
-- npmなしのWindowsビルドはUIを再生成しないため、接続端末で作成した `frontend/dist` をそのまま埋め込む
+- npmなしのWindowsビルドはUIを再生成しないため、接続端末で作成した `frontend/dist` をそのまま埋め込み、Go依存は同梱済みの `vendor/` から解決する
 - GitHub Actionsではタグ `v*` のpushを契機にmacOSとWindowsの配布用ビルドを作成する
 - featureブランチ検証用に、`workflow_dispatch` でWindows exe artifactだけを作成するGitHub Actionsを用意する
-- GitHub ActionsのReleaseビルドは `go test ./...` を実行してから成果物を作成する
+- GitHub ActionsのReleaseビルドは `go test -mod=vendor ./...` を実行してから成果物を作成する
 - macOS成果物は `YAML Struct Editor.app` を `YAML-Struct-Editor-macOS.zip` としてReleaseへ添付する
 - Windows成果物は `yaml-struct-editor.exe` を `YAML-Struct-Editor-Windows.zip` としてReleaseへ添付する
 - 署名とnotarizationは現時点では未対応とし、正式配布時の追加項目とする

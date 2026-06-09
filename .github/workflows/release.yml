@@ -34,7 +34,7 @@ jobs:
         run: npm ci
 
       - name: Test
-        run: go test ./...
+        run: go test -mod=vendor ./...
 
       - name: Build app bundle
         run: scripts/build-macos-app.sh
@@ -73,7 +73,7 @@ jobs:
         run: npm ci
 
       - name: Test
-        run: go test ./...
+        run: go test -mod=vendor ./...
 
       - name: Build executable
         shell: pwsh

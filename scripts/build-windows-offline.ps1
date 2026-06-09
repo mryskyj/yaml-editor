@@ -12,7 +12,7 @@ if (-not (Test-Path $frontendIndex)) {
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
 
 Push-Location $root
-go build -tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui" -o $exe ./cmd/yaml-struct-editor
+go build -mod=vendor -tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui" -o $exe ./cmd/yaml-struct-editor
 Pop-Location
 
 Write-Host "Built: $exe"

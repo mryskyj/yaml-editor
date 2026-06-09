@@ -39,6 +39,7 @@
 - [x] Go toolchainを1.26.2へ更新する
 - [x] サンプルスキーマのroot型名固定を解除する
 - [x] 配布用frontendにMonaco Editorアセットを同梱する
+- [x] Go依存ライブラリをvendor化する
 
 ---
 
@@ -322,3 +323,10 @@
 - production UIではMonaco Editorのloader参照先を `/vs` にし、CDNへ依存しないようにした
 - 開発サーバーでは従来どおりVite経由の開発動作を維持するようにした
 - Goのembed対象に `frontend/dist/vs/loader.js` が含まれる単体テストを追加した
+
+### Go依存ライブラリをvendor化する
+
+- `go mod vendor -e` でGo依存ライブラリを `vendor/` に同梱した
+- 通常のWindowsビルド、Windows npmなしビルド、macOS appビルドで `-mod=vendor` を指定するようにした
+- Release workflowとWindows Artifact workflowのGoテストを `go test -mod=vendor ./...` に変更した
+- `go test -mod=vendor ./...` と `go build -mod=vendor ./cmd/yaml-struct-editor` でvendor依存の利用を確認した

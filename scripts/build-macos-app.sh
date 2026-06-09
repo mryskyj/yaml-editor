@@ -11,7 +11,7 @@ rm -rf "$BUNDLE_DIR"
 mkdir -p "$MACOS_DIR"
 
 (cd "$ROOT_DIR/frontend" && npm run build)
-(cd "$ROOT_DIR" && go build -tags production -trimpath -buildvcs=false -ldflags="-w -s" -o "$MACOS_DIR/yaml-struct-editor" ./cmd/yaml-struct-editor)
+(cd "$ROOT_DIR" && go build -mod=vendor -tags production -trimpath -buildvcs=false -ldflags="-w -s" -o "$MACOS_DIR/yaml-struct-editor" ./cmd/yaml-struct-editor)
 
 cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>

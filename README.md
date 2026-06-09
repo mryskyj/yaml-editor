@@ -42,6 +42,9 @@ npm run build
 このbuildでは `frontend/dist/vs` にMonaco Editorの実行時アセットも生成されます。
 配布用exeはこの同梱アセットを使うため、Monacoの読み込みにCDN接続は不要です。
 
+Go依存ライブラリは `vendor/` に同梱しています。
+配布用ビルドとCIテストは `-mod=vendor` を指定し、Go module downloadに依存しません。
+
 アプリを起動します。
 
 ```sh
@@ -107,7 +110,7 @@ type Server struct {
 ## Test
 
 ```sh
-go test ./...
+go test -mod=vendor ./...
 ```
 
 ## Build
@@ -135,6 +138,8 @@ scripts\build-windows.ps1
 ```powershell
 scripts\build-windows-offline.ps1
 ```
+
+このofflineビルドでは `frontend/dist` と `vendor/` を使うため、Node/npmとGo module downloadは不要です。
 
 ## Release
 
