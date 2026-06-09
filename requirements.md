@@ -241,6 +241,9 @@ steps:
 - デフォルト値
 - enum候補
 
+slice / array のリスト要素配下では、要素structのキーを候補として表示する。
+例として `scenario.steps` の `- id:` 配下では、同じstep要素の `name`, `day_ref`, `schedule_ref`, `action` などを候補に出す。
+
 組み込みRootスキーマの `common.dates` では、日付エントリを `day1`, `day2` のように連番キーで表す。
 `dates:` で改行した場合は、`day1` とその配下の `date`, `holiday` を自動入力する。
 `dayN.holiday` に `true` または `false` を入力して改行した場合は、次の `dayN+1` とその配下の `date`, `holiday` を補完候補として表示する。

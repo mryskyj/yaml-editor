@@ -18,6 +18,14 @@ func completionSchema(t *testing.T) *schema.Field {
 		App struct {
 			Mode string `yaml:"mode" enum:"dev,stg,prod" desc:"run mode"`
 		} `yaml:"app"`
+		Steps []struct {
+			ID     string `yaml:"id"`
+			Name   string `yaml:"name"`
+			Action struct {
+				Tool string            `yaml:"tool"`
+				Args map[string]string `yaml:"args"`
+			} `yaml:"action"`
+		} `yaml:"steps"`
 	}
 
 	root, err := schema.Parse(config{})
@@ -32,7 +40,7 @@ func TestProvideRootCandidates(t *testing.T) {
 
 	candidates := Provide("", 1, 1, completionSchema(t))
 	names := candidateNames(candidates)
-	want := []string{"server", "app"}
+	want := []string{"server", "app", "steps"}
 	if !reflect.DeepEqual(names, want) {
 		t.Fatalf("candidate names = %#v, want %#v", names, want)
 	}
@@ -83,6 +91,30 @@ func TestProvideIncludesMetadata(t *testing.T) {
 	wantEnum := []string{"dev", "stg", "prod"}
 	if !reflect.DeepEqual(candidate.Enum, wantEnum) {
 		t.Fatalf("Enum = %#v, want %#v", candidate.Enum, wantEnum)
+	}
+}
+
+func TestProvideSliceItemCandidates(t *testing.T) {
+	t.Parallel()
+
+	source := "steps:\n  - id: first\n    \n"
+	candidates := Provide(source, 3, 5, completionSchema(t))
+	names := candidateNames(candidates)
+	want := []string{"name", "action"}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("candidate names = %#v, want %#v", names, want)
+	}
+}
+
+func TestProvideNestedSliceItemCandidates(t *testing.T) {
+	t.Parallel()
+
+	source := "steps:\n  - id: first\n    action:\n      \n"
+	candidates := Provide(source, 4, 7, completionSchema(t))
+	names := candidateNames(candidates)
+	want := []string{"tool", "args"}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("candidate names = %#v, want %#v", names, want)
 	}
 }
 

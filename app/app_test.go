@@ -66,6 +66,25 @@ func TestAppCompleteYAML(t *testing.T) {
 	}
 }
 
+func TestAppCompleteYAMLScenarioStepListItem(t *testing.T) {
+	t.Parallel()
+
+	app := testApp(t)
+	candidates, err := app.CompleteYAML("scenario:\n  steps:\n    - id: \"101-02\"\n      \n", 4, 7)
+	if err != nil {
+		t.Fatalf("CompleteYAML() returned error: %v", err)
+	}
+	if !hasCandidate(candidates, "name") {
+		t.Fatalf("CompleteYAML() candidates = %#v, want name", candidates)
+	}
+	if !hasCandidate(candidates, "day_ref") {
+		t.Fatalf("CompleteYAML() candidates = %#v, want day_ref", candidates)
+	}
+	if hasCandidate(candidates, "id") {
+		t.Fatalf("CompleteYAML() candidates = %#v, want id excluded as existing key", candidates)
+	}
+}
+
 func TestAppSchemaCommonDatesUseDayDateHolidayStructure(t *testing.T) {
 	t.Parallel()
 

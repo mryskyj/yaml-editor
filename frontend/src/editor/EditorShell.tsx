@@ -512,6 +512,7 @@ export function EditorShell() {
 							suggestOnTriggerCharacters: true,
 							tabSize: 2,
 							wordWrap: "on",
+							wordBasedSuggestions: "off",
 							contextmenu: false,
 						}}
 						value={content}

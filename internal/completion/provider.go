@@ -88,49 +88,78 @@ func enumCandidates(field *schema.Field) []Candidate {
 }
 
 func inferPath(lines []string, cursorIndex int, cursorIndent int) []string {
-	stack := make([]string, 0)
+	stack := make([]pathEntry, 0)
 	for i := 0; i < cursorIndex && i < len(lines); i++ {
 		line := lines[i]
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
 
-		indent := indentation(line)
+		indent := keyIndentation(line)
 		if indent >= cursorIndent {
 			continue
 		}
 
-		key, hasKey := yamlKey(line)
+		key, hasKey := yamlContainerKey(line)
 		if !hasKey {
 			continue
 		}
 
-		level := indent / 2
-		if level < len(stack) {
-			stack = stack[:level]
+		for len(stack) > 0 && stack[len(stack)-1].indent >= indent {
+			stack = stack[:len(stack)-1]
 		}
-		if level == len(stack) {
-			stack = append(stack, key)
-		}
+		stack = append(stack, pathEntry{indent: indent, key: key})
 	}
 
-	level := cursorIndent / 2
-	if level < len(stack) {
-		stack = stack[:level]
+	for len(stack) > 0 && stack[len(stack)-1].indent >= cursorIndent {
+		stack = stack[:len(stack)-1]
 	}
-	return stack
+
+	path := make([]string, 0, len(stack))
+	for _, entry := range stack {
+		path = append(path, entry.key)
+	}
+	return path
+}
+
+type pathEntry struct {
+	indent int
+	key    string
 }
 
 func fieldAtPath(root *schema.Field, path []string) *schema.Field {
 	current := root
 	for _, name := range path {
+		current = collectionValueField(current)
+		if current == nil {
+			return nil
+		}
+
 		child, ok := current.FindChild(name)
 		if !ok {
 			return nil
 		}
 		current = child
 	}
-	return current
+	return collectionValueField(current)
+}
+
+func collectionValueField(field *schema.Field) *schema.Field {
+	if field == nil {
+		return nil
+	}
+
+	switch field.Type {
+	case schema.FieldTypeSlice, schema.FieldTypeArray:
+		if field.Item != nil {
+			return field.Item
+		}
+	case schema.FieldTypeMap:
+		if field.MapValue != nil {
+			return field.MapValue
+		}
+	}
+	return field
 }
 
 func existingKeys(lines []string, cursorIndex int, cursorIndent int, path []string) map[string]bool {
@@ -140,7 +169,7 @@ func existingKeys(lines []string, cursorIndex int, cursorIndent int, path []stri
 			continue
 		}
 		line := lines[i]
-		if strings.TrimSpace(line) == "" || indentation(line) != cursorIndent {
+		if strings.TrimSpace(line) == "" || keyIndentation(line) != cursorIndent {
 			continue
 		}
 
@@ -169,6 +198,20 @@ func yamlKey(line string) (string, bool) {
 	return strings.TrimSpace(trimmed[:index]), true
 }
 
+func yamlContainerKey(line string) (string, bool) {
+	trimmed := strings.TrimSpace(line)
+	trimmed = strings.TrimPrefix(trimmed, "- ")
+	index := strings.Index(trimmed, ":")
+	if index <= 0 {
+		return "", false
+	}
+
+	if strings.TrimSpace(trimmed[index+1:]) != "" {
+		return "", false
+	}
+	return strings.TrimSpace(trimmed[:index]), true
+}
+
 func indentation(line string) int {
 	count := 0
 	for _, char := range line {
@@ -178,6 +221,14 @@ func indentation(line string) int {
 		count++
 	}
 	return count
+}
+
+func keyIndentation(line string) int {
+	indent := indentation(line)
+	if strings.HasPrefix(strings.TrimSpace(line), "- ") {
+		return indent + 2
+	}
+	return indent
 }
 
 func lineAt(lines []string, index int) string {
