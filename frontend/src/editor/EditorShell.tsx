@@ -15,7 +15,7 @@ import { FileTabs } from "../components/FileTabs";
 import { FileToolbar } from "../components/FileToolbar";
 import { ScheduleMenu } from "../components/ScheduleMenu";
 import { SchemaPane, type SchemaField } from "../components/SchemaPane";
-import { dateTemplateInsertion } from "./dateTemplates";
+import { dateNextBlockCompletion, dateTemplateInsertion } from "./dateTemplates";
 import {
 	defaultScheduleTemplate,
 	sanitizeScheduleTemplate,
@@ -172,15 +172,22 @@ export function EditorShell() {
 				return {
 					suggestions: candidates
 						.filter((candidate) => candidate.name !== "")
-						.map((candidate) => toCompletionItem(monaco, model, position, candidate)),
+						.map((candidate) => toCompletionItem(monaco, model, position, candidate))
+						.concat(dateBlockCompletionItem(monaco, model, position)),
 				};
 			},
 		});
 		contentChangeRef.current = editor.onDidChangeModelContent((event) => {
 			if (!automaticEditRef.current) {
 				for (const change of event.changes) {
-					if (change.text.includes("\n") && insertCommonTemplate(monaco, editor, automaticEditRef, scheduleTemplateRef.current)) {
-						return;
+					if (change.text.includes("\n")) {
+						if (insertCommonTemplate(monaco, editor, automaticEditRef, scheduleTemplateRef.current)) {
+							return;
+						}
+						if (hasDateBlockCompletion(editor)) {
+							editor.trigger("yaml-struct-editor", "editor.action.triggerSuggest", null);
+							return;
+						}
 					}
 				}
 			}
@@ -510,6 +517,44 @@ function loadScheduleTemplate(): string {
 	}
 	const sanitized = sanitizeScheduleTemplate(stored);
 	return sanitized === "" ? defaultScheduleTemplate : sanitized;
+}
+
+function hasDateBlockCompletion(editor: Monaco.editor.IStandaloneCodeEditor): boolean {
+	const model = editor.getModel();
+	const position = editor.getPosition();
+	if (!model || !position) {
+		return false;
+	}
+	return dateNextBlockCompletion(model.getValue().split(/\r?\n/), position.lineNumber) !== null;
+}
+
+function dateBlockCompletionItem(
+	monaco: typeof Monaco,
+	model: Monaco.editor.ITextModel,
+	position: Monaco.Position,
+): Monaco.languages.CompletionItem[] {
+	const insertion = dateNextBlockCompletion(model.getValue().split(/\r?\n/), position.lineNumber);
+	if (!insertion) {
+		return [];
+	}
+
+	const range = {
+		startLineNumber: position.lineNumber,
+		endLineNumber: position.lineNumber,
+		startColumn: 1,
+		endColumn: model.getLineMaxColumn(position.lineNumber),
+	};
+	const label = insertion.text.trimStart().split(":")[0] || "next day";
+	return [{
+		label,
+		kind: monaco.languages.CompletionItemKind.Snippet,
+		insertText: `${insertion.text}$0`,
+		insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+		range,
+		detail: "date block | optional",
+		documentation: "Insert the next day block.",
+		sortText: "0000",
+	}];
 }
 
 function toCompletionItem(

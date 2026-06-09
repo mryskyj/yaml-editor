@@ -43,6 +43,7 @@
 - [x] 組み込みRootスキーマを `app/rootschema.File` に切り替える
 - [x] `common.dates` の `dayN` 自動入力を実装する
 - [x] `common.schedules` の自動入力と編集メニューを実装する
+- [x] `common.dates` の次day入力を補完候補方式へ変更する
 
 ---
 
@@ -358,3 +359,11 @@
 - scheduleテンプレートの保存先をブラウザlocalStorageにした
 - YAML Anchor定義は許可し、Alias参照のみ未対応診断として残した
 - App serviceのRootスキーマとAnchor付きschedule YAMLの検証テストを追加した
+
+### `common.dates` の次day入力を補完候補方式へ変更する
+
+- `dates:` 改行時の `day1` ブロック自動入力は維持した
+- `dayN.holiday` 改行時は `dayN+1` ブロックを自動挿入せず、補完候補として表示するようにした
+- ユーザーが補完候補を確定した場合のみ `dayN+1` ブロックを挿入するようにした
+- 直前の `dayN.date` が `YYYY-MM-DD` 形式の場合、補完候補の `dayN+1.date` に翌日を設定するようにした
+- 自動入力された `day1` ブロックは1回のUndoで取り消せる仕様として記録した

@@ -28,6 +28,22 @@ export function dateTemplateInsertion(lines: string[], lineNumber: number): Date
 		return dateBlockInsertion(indent, 1, "");
 	}
 
+	return null;
+}
+
+export function dateNextBlockCompletion(lines: string[], lineNumber: number): DateTemplateInsertion | null {
+	const currentIndex = lineNumber - 1;
+	const previousIndex = currentIndex - 1;
+	if (previousIndex < 0 || currentIndex >= lines.length) {
+		return null;
+	}
+
+	const currentLine = lines[currentIndex] ?? "";
+	if (currentLine.trim() !== "") {
+		return null;
+	}
+
+	const previousLine = lines[previousIndex] ?? "";
 	if (!holidayPattern.test(previousLine.trim())) {
 		return null;
 	}
