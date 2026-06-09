@@ -232,6 +232,11 @@ steps:
 - デフォルト値
 - enum候補
 
+組み込みRootスキーマの `common.dates` では、日付エントリを `day1`, `day2` のように連番キーで表す。
+`dates:` で改行した場合は、`day1` とその配下の `date`, `holiday` を自動入力する。
+`dayN.holiday` に `true` または `false` を入力して改行した場合は、次の `dayN+1` とその配下の `date`, `holiday` を自動入力する。
+直前の `dayN.date` が `YYYY-MM-DD` 形式の場合、次の `date` には翌日を設定する。
+
 ---
 
 ### バリデーション
@@ -373,6 +378,18 @@ Fileの第一階層:
 - schema_version
 - common
 - scenario
+
+`common` の `dates` は、以下のように `dayN` 配下へ日付と祝日フラグを持つ。
+
+```yaml
+dates:
+    day1:
+        date: "2026-03-01"
+        holiday: false
+    day2:
+        date: "2026-03-02"
+        holiday: false
+```
 
 `scenario` の例:
 

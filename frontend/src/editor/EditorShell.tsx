@@ -1,5 +1,5 @@
 import Editor, { type OnMount } from "@monaco-editor/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import type * as Monaco from "monaco-editor";
 import {
 	chooseSavePath,
@@ -14,6 +14,7 @@ import { ErrorList, type EditorDiagnostic } from "../components/ErrorList";
 import { FileTabs } from "../components/FileTabs";
 import { FileToolbar } from "../components/FileToolbar";
 import { SchemaPane, type SchemaField } from "../components/SchemaPane";
+import { dateTemplateInsertion } from "./dateTemplates";
 import {
 	activeTab,
 	addUntitledTab,
@@ -83,6 +84,7 @@ export function EditorShell() {
 	const completionProviderRef = useRef<Monaco.IDisposable | null>(null);
 	const contentChangeRef = useRef<Monaco.IDisposable | null>(null);
 	const cursorPositionRef = useRef<Monaco.IDisposable | null>(null);
+	const automaticEditRef = useRef(false);
 	const validationRequestRef = useRef(0);
 	const [tabState, setTabState] = useState<TabState>(() => createInitialTabState());
 	const [pendingCloseTabID, setPendingCloseTabID] = useState<string | null>(null);
@@ -164,6 +166,14 @@ export function EditorShell() {
 			},
 		});
 		contentChangeRef.current = editor.onDidChangeModelContent((event) => {
+			if (!automaticEditRef.current) {
+				for (const change of event.changes) {
+					if (change.text.includes("\n") && insertDateTemplate(monaco, editor, automaticEditRef)) {
+						return;
+					}
+				}
+			}
+
 			for (const change of event.changes) {
 				if (shouldTriggerSuggest(editor, change.text)) {
 					editor.trigger("yaml-struct-editor", "editor.action.triggerSuggest", null);
@@ -419,6 +429,40 @@ export function EditorShell() {
 			) : null}
 		</main>
 	);
+}
+
+function insertDateTemplate(
+	monaco: typeof Monaco,
+	editor: Monaco.editor.IStandaloneCodeEditor,
+	automaticEditRef: MutableRefObject<boolean>,
+): boolean {
+	const model = editor.getModel();
+	const position = editor.getPosition();
+	if (!model || !position) {
+		return false;
+	}
+
+	const lines = model.getValue().split(/\r?\n/);
+	const insertion = dateTemplateInsertion(lines, position.lineNumber);
+	if (!insertion) {
+		return false;
+	}
+
+	const range = new monaco.Range(
+		position.lineNumber,
+		1,
+		position.lineNumber,
+		model.getLineMaxColumn(position.lineNumber),
+	);
+
+	automaticEditRef.current = true;
+	editor.executeEdits("yaml-struct-editor", [{ range, text: insertion.text }]);
+	automaticEditRef.current = false;
+	editor.setPosition({
+		lineNumber: position.lineNumber + insertion.cursorLineOffset,
+		column: insertion.cursorColumn,
+	});
+	return true;
 }
 
 function toCompletionItem(

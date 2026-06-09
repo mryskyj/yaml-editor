@@ -66,6 +66,41 @@ func TestAppCompleteYAML(t *testing.T) {
 	}
 }
 
+func TestAppSchemaCommonDatesUseDayDateHolidayStructure(t *testing.T) {
+	t.Parallel()
+
+	app := testApp(t)
+	root, err := app.Schema()
+	if err != nil {
+		t.Fatalf("Schema() returned error: %v", err)
+	}
+
+	common, ok := root.FindChild("common")
+	if !ok {
+		t.Fatal("Schema() missing common field")
+	}
+	dates, ok := common.FindChild("dates")
+	if !ok {
+		t.Fatal("Schema() missing common.dates field")
+	}
+	if dates.Type != schema.FieldTypeMap {
+		t.Fatalf("common.dates Type = %q, want map", dates.Type)
+	}
+	if dates.MapValue == nil {
+		t.Fatal("common.dates MapValue is nil")
+	}
+	if _, ok := dates.MapValue.FindChild("date"); !ok {
+		t.Fatal("common.dates day entry missing date field")
+	}
+	holiday, ok := dates.MapValue.FindChild("holiday")
+	if !ok {
+		t.Fatal("common.dates day entry missing holiday field")
+	}
+	if holiday.Type != schema.FieldTypeBool {
+		t.Fatalf("common.dates holiday Type = %q, want bool", holiday.Type)
+	}
+}
+
 func TestNewWithSchemaSourceAutoDetectsAlternateSample(t *testing.T) {
 	t.Parallel()
 

@@ -41,6 +41,7 @@
 - [x] 配布用frontendにMonaco Editorアセットを同梱する
 - [x] Go依存ライブラリをvendor化する
 - [x] 組み込みRootスキーマを `app/rootschema.File` に切り替える
+- [x] `common.dates` の `dayN` 自動入力を実装する
 
 ---
 
@@ -339,3 +340,11 @@
 - 組み込みスキーマのembed対象を `app/sampleschema` から `app/rootschema` に変更した
 - root structを自動検出せず、`File` を明示指定して登録するようにした
 - App serviceのスキーマ、検証、補完テストを `File` root前提に更新した
+
+### `common.dates` の `dayN` 自動入力を実装する
+
+- `common.dates` を `dayN` 配下に `date` と `holiday` を持つ構造として扱う仕様を追記した
+- `dates:` 改行時に `day1.date` と `day1.holiday` を自動入力するようにした
+- `dayN.holiday` 改行時に次の `dayN+1` ブロックを自動入力するようにした
+- `YYYY-MM-DD` 形式の直前日付から次の日付を設定するようにした
+- App serviceのRootスキーマテストに `common.dates` の構造確認を追加した
