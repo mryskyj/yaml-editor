@@ -1,5 +1,12 @@
 import Editor, { type OnMount } from "@monaco-editor/react";
-import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
+import {
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+	type MouseEvent as ReactMouseEvent,
+	type MutableRefObject,
+} from "react";
 import type * as Monaco from "monaco-editor";
 import {
 	chooseSavePath,
@@ -92,12 +99,15 @@ export function EditorShell() {
 	const completionProviderRef = useRef<Monaco.IDisposable | null>(null);
 	const contentChangeRef = useRef<Monaco.IDisposable | null>(null);
 	const cursorPositionRef = useRef<Monaco.IDisposable | null>(null);
+	const selectionKeyRef = useRef<Monaco.IDisposable | null>(null);
+	const restoredTabIDRef = useRef<string | null>(null);
 	const automaticEditRef = useRef(false);
 	const validationRequestRef = useRef(0);
 	const [tabState, setTabState] = useState<TabState>(() => createInitialTabState());
 	const [pendingCloseTabID, setPendingCloseTabID] = useState<string | null>(null);
 	const [isScheduleMenuOpen, setIsScheduleMenuOpen] = useState(false);
 	const [scheduleTemplate, setScheduleTemplate] = useState(loadScheduleTemplate);
+	const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 	const scheduleTemplateRef = useRef(scheduleTemplate);
 	const [openRequestID, setOpenRequestID] = useState(0);
 	const [recentFiles, setRecentFiles] = useState<string[]>(["config.yaml"]);
@@ -158,6 +168,7 @@ export function EditorShell() {
 		completionProviderRef.current?.dispose();
 		contentChangeRef.current?.dispose();
 		cursorPositionRef.current?.dispose();
+		selectionKeyRef.current?.dispose();
 		completionProviderRef.current = monaco.languages.registerCompletionItemProvider("yaml", {
 			triggerCharacters: [" ", "\n", ":", "-"],
 			provideCompletionItems: async (
@@ -205,6 +216,9 @@ export function EditorShell() {
 				column: event.position.column,
 			}));
 		});
+		selectionKeyRef.current = editor.onKeyDown((event) => {
+			handleShiftArrowSelection(editor, monaco, event);
+		});
 		const position = editor.getPosition();
 		if (position) {
 			setTabState((state) => updateTabCursor(state, activeTab(state).id, {
@@ -220,6 +234,7 @@ export function EditorShell() {
 			completionProviderRef.current?.dispose();
 			contentChangeRef.current?.dispose();
 			cursorPositionRef.current?.dispose();
+			selectionKeyRef.current?.dispose();
 		};
 	}, []);
 
@@ -251,7 +266,11 @@ export function EditorShell() {
 		if (!editor) {
 			return;
 		}
+		if (restoredTabIDRef.current === currentTab.id) {
+			return;
+		}
 
+		restoredTabIDRef.current = currentTab.id;
 		editor.setPosition({
 			lineNumber: cursor.line,
 			column: cursor.column,
@@ -307,6 +326,30 @@ export function EditorShell() {
 			window.alert(error instanceof Error ? error.message : "Save failed");
 		}
 	}, [tabState]);
+
+	const handleCopy = useCallback(() => {
+		setContextMenu(null);
+		void copyEditorSelection(editorRef.current).catch(showClipboardError);
+	}, []);
+
+	const handleCut = useCallback(() => {
+		setContextMenu(null);
+		void cutEditorSelection(editorRef.current, automaticEditRef).catch(showClipboardError);
+	}, []);
+
+	const handlePaste = useCallback(() => {
+		setContextMenu(null);
+		void pasteIntoEditor(editorRef.current, automaticEditRef).catch(showClipboardError);
+	}, []);
+
+	const handleEditorContextMenu = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+		event.preventDefault();
+		editorRef.current?.focus();
+		setContextMenu({
+			x: Math.min(event.clientX, window.innerWidth - 144),
+			y: Math.min(event.clientY, window.innerHeight - 112),
+		});
+	}, []);
 
 	const handleSaveScheduleTemplate = useCallback((nextTemplate: string) => {
 		const sanitized = sanitizeScheduleTemplate(nextTemplate);
@@ -364,6 +407,11 @@ export function EditorShell() {
 				handleCancelCloseTab();
 				return;
 			}
+			if (event.key === "Escape" && contextMenu) {
+				event.preventDefault();
+				setContextMenu(null);
+				return;
+			}
 
 			if (!isPrimaryShortcut(event)) {
 				return;
@@ -399,6 +447,7 @@ export function EditorShell() {
 		window.addEventListener("keydown", handleShortcut);
 		return () => window.removeEventListener("keydown", handleShortcut);
 	}, [
+		contextMenu,
 		handleCancelCloseTab,
 		handleCloseActiveTab,
 		handleNew,
@@ -407,6 +456,19 @@ export function EditorShell() {
 		handleSelectAdjacentTab,
 		pendingCloseTabID,
 	]);
+
+	useEffect(() => {
+		if (!contextMenu) {
+			return;
+		}
+		const closeContextMenu = () => setContextMenu(null);
+		window.addEventListener("click", closeContextMenu);
+		window.addEventListener("blur", closeContextMenu);
+		return () => {
+			window.removeEventListener("click", closeContextMenu);
+			window.removeEventListener("blur", closeContextMenu);
+		};
+	}, [contextMenu]);
 
 	return (
 		<main className="app-shell">
@@ -417,6 +479,9 @@ export function EditorShell() {
 				onOpen={handleOpen}
 				onSave={handleSave}
 				onSchedules={() => setIsScheduleMenuOpen(true)}
+				onCopy={handleCopy}
+				onCut={handleCut}
+				onPaste={handlePaste}
 				onUndo={() => editorRef.current?.trigger("toolbar", "undo", null)}
 				onRedo={() => editorRef.current?.trigger("toolbar", "redo", null)}
 				openRequestID={openRequestID}
@@ -428,7 +493,7 @@ export function EditorShell() {
 				tabs={tabState.tabs}
 			/>
 			<section className="workspace">
-				<div className="editor-region">
+				<div className="editor-region" onContextMenu={handleEditorContextMenu}>
 					<Editor
 						height="100%"
 						defaultLanguage="yaml"
@@ -447,12 +512,24 @@ export function EditorShell() {
 							suggestOnTriggerCharacters: true,
 							tabSize: 2,
 							wordWrap: "on",
+							contextmenu: false,
 						}}
 						value={content}
 					/>
 				</div>
 				<SchemaPane root={schema} content={content} cursor={cursor} />
 			</section>
+			{contextMenu ? (
+				<div
+					className="editor-context-menu"
+					style={{ left: contextMenu.x, top: contextMenu.y }}
+					onClick={(event) => event.stopPropagation()}
+				>
+					<button type="button" onClick={handleCut}>Cut</button>
+					<button type="button" onClick={handleCopy}>Copy</button>
+					<button type="button" onClick={handlePaste}>Paste</button>
+				</div>
+			) : null}
 			<ErrorList diagnostics={diagnostics} onSelect={handleSelectDiagnostic} />
 			{pendingCloseTab ? (
 				<CloseTabDialog
@@ -517,6 +594,220 @@ function loadScheduleTemplate(): string {
 	}
 	const sanitized = sanitizeScheduleTemplate(stored);
 	return sanitized === "" ? defaultScheduleTemplate : sanitized;
+}
+
+async function copyEditorSelection(editor: Monaco.editor.IStandaloneCodeEditor | null): Promise<void> {
+	const text = selectedOrCurrentLineText(editor);
+	if (text === null) {
+		return;
+	}
+	await writeClipboardText(text);
+	editor?.focus();
+}
+
+async function cutEditorSelection(
+	editor: Monaco.editor.IStandaloneCodeEditor | null,
+	automaticEditRef: MutableRefObject<boolean>,
+): Promise<void> {
+	const text = selectedOrCurrentLineText(editor);
+	if (text === null || !editor) {
+		return;
+	}
+
+	await writeClipboardText(text);
+	deleteSelectedOrCurrentLine(editor, automaticEditRef);
+	editor.focus();
+}
+
+async function pasteIntoEditor(
+	editor: Monaco.editor.IStandaloneCodeEditor | null,
+	automaticEditRef: MutableRefObject<boolean>,
+): Promise<void> {
+	if (!editor) {
+		return;
+	}
+
+	const text = await readClipboardText();
+	if (text === "") {
+		editor.focus();
+		return;
+	}
+
+	const selections = editor.getSelections() ?? [];
+	if (selections.length === 0) {
+		editor.focus();
+		return;
+	}
+
+	editor.pushUndoStop();
+	automaticEditRef.current = true;
+	editor.executeEdits("toolbar-paste", selections.map((selection) => ({
+		range: selection,
+		text,
+		forceMoveMarkers: true,
+	})));
+	automaticEditRef.current = false;
+	editor.pushUndoStop();
+	editor.focus();
+}
+
+function selectedOrCurrentLineText(editor: Monaco.editor.IStandaloneCodeEditor | null): string | null {
+	const model = editor?.getModel();
+	const selection = editor?.getSelection();
+	if (!model || !selection) {
+		return null;
+	}
+
+	if (!selection.isEmpty()) {
+		return model.getValueInRange(selection);
+	}
+
+	return `${model.getLineContent(selection.startLineNumber)}${model.getEOL()}`;
+}
+
+function deleteSelectedOrCurrentLine(
+	editor: Monaco.editor.IStandaloneCodeEditor,
+	automaticEditRef: MutableRefObject<boolean>,
+): void {
+	const model = editor.getModel();
+	const selection = editor.getSelection();
+	if (!model || !selection) {
+		return;
+	}
+
+	const range = selection.isEmpty()
+		? currentLineRange(model, selection.startLineNumber)
+		: selection;
+
+	editor.pushUndoStop();
+	automaticEditRef.current = true;
+	editor.executeEdits("toolbar-cut", [{ range, text: "", forceMoveMarkers: true }]);
+	automaticEditRef.current = false;
+	editor.pushUndoStop();
+}
+
+function currentLineRange(model: Monaco.editor.ITextModel, lineNumber: number): Monaco.IRange {
+	if (lineNumber < model.getLineCount()) {
+		return {
+			startLineNumber: lineNumber,
+			startColumn: 1,
+			endLineNumber: lineNumber + 1,
+			endColumn: 1,
+		};
+	}
+	return {
+		startLineNumber: lineNumber,
+		startColumn: 1,
+		endLineNumber: lineNumber,
+		endColumn: model.getLineMaxColumn(lineNumber),
+	};
+}
+
+async function writeClipboardText(text: string): Promise<void> {
+	if (!navigator.clipboard?.writeText) {
+		throw new Error("Clipboard write is not available");
+	}
+	await navigator.clipboard.writeText(text);
+}
+
+async function readClipboardText(): Promise<string> {
+	if (!navigator.clipboard?.readText) {
+		throw new Error("Clipboard read is not available");
+	}
+	return navigator.clipboard.readText();
+}
+
+function showClipboardError(error: unknown): void {
+	window.alert(error instanceof Error ? error.message : "Clipboard operation failed");
+}
+
+function handleShiftArrowSelection(
+	editor: Monaco.editor.IStandaloneCodeEditor,
+	monaco: typeof Monaco,
+	event: Monaco.IKeyboardEvent,
+): void {
+	if (!event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) {
+		return;
+	}
+
+	const model = editor.getModel();
+	const selection = editor.getSelection();
+	if (!model || !selection) {
+		return;
+	}
+
+	let nextPosition: { lineNumber: number; column: number } | null = null;
+	switch (event.keyCode) {
+		case monaco.KeyCode.LeftArrow:
+			nextPosition = previousPosition(model, selection.positionLineNumber, selection.positionColumn);
+			break;
+		case monaco.KeyCode.RightArrow:
+			nextPosition = nextPositionInModel(model, selection.positionLineNumber, selection.positionColumn);
+			break;
+		case monaco.KeyCode.UpArrow:
+			nextPosition = verticalPosition(model, selection.positionLineNumber - 1, selection.positionColumn);
+			break;
+		case monaco.KeyCode.DownArrow:
+			nextPosition = verticalPosition(model, selection.positionLineNumber + 1, selection.positionColumn);
+			break;
+		default:
+			return;
+	}
+
+	if (!nextPosition) {
+		return;
+	}
+
+	event.preventDefault();
+	event.stopPropagation();
+	editor.setSelection(new monaco.Selection(
+		selection.selectionStartLineNumber,
+		selection.selectionStartColumn,
+		nextPosition.lineNumber,
+		nextPosition.column,
+	));
+	editor.revealPositionInCenterIfOutsideViewport(nextPosition);
+}
+
+function previousPosition(
+	model: Monaco.editor.ITextModel,
+	lineNumber: number,
+	column: number,
+): { lineNumber: number; column: number } | null {
+	if (column > 1) {
+		return { lineNumber, column: column - 1 };
+	}
+	if (lineNumber <= 1) {
+		return null;
+	}
+	const previousLine = lineNumber - 1;
+	return { lineNumber: previousLine, column: model.getLineMaxColumn(previousLine) };
+}
+
+function nextPositionInModel(
+	model: Monaco.editor.ITextModel,
+	lineNumber: number,
+	column: number,
+): { lineNumber: number; column: number } | null {
+	const maxColumn = model.getLineMaxColumn(lineNumber);
+	if (column < maxColumn) {
+		return { lineNumber, column: column + 1 };
+	}
+	if (lineNumber >= model.getLineCount()) {
+		return null;
+	}
+	return { lineNumber: lineNumber + 1, column: 1 };
+}
+
+function verticalPosition(
+	model: Monaco.editor.ITextModel,
+	lineNumber: number,
+	column: number,
+): { lineNumber: number; column: number } | null {
+	if (lineNumber < 1 || lineNumber > model.getLineCount()) {
+		return null;
+	}
+	return { lineNumber, column: Math.min(column, model.getLineMaxColumn(lineNumber)) };
 }
 
 function hasDateBlockCompletion(editor: Monaco.editor.IStandaloneCodeEditor): boolean {

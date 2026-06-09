@@ -7,6 +7,9 @@ type FileToolbarProps = {
   onOpen: (fileName: string, content: string) => void;
   onSave: () => void;
   onSchedules: () => void;
+  onCopy: () => void;
+  onCut: () => void;
+  onPaste: () => void;
   onUndo: () => void;
   onRedo: () => void;
   openRequestID: number;
@@ -19,6 +22,9 @@ export function FileToolbar({
   onOpen,
   onSave,
   onSchedules,
+  onCopy,
+  onCut,
+  onPaste,
   onUndo,
   onRedo,
   openRequestID,
@@ -72,6 +78,16 @@ export function FileToolbar({
         ))}
       </select>
       <span className="current-file">{currentFileName}</span>
+      <span className="toolbar-separator" />
+      <button type="button" className="toolbar-button" onClick={onCopy}>
+        Copy
+      </button>
+      <button type="button" className="toolbar-button" onClick={onCut}>
+        Cut
+      </button>
+      <button type="button" className="toolbar-button" onClick={onPaste}>
+        Paste
+      </button>
       <span className="toolbar-separator" />
       <button type="button" className="toolbar-button" onClick={onUndo}>
         Undo

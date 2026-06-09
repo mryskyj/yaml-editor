@@ -415,11 +415,21 @@ OS差異を吸収し、UTF-8テキストとしてYAMLファイルを読み書き
 - 開く
 - 保存
 - 最近開いたファイル
+- Copy
+- Cut
+- Paste
 - Undo
 - Redo
 
 保存はWails API経由でApp serviceの `SaveFile` を呼び出す。
 保存先パスが未確定の場合は、Wails runtimeの保存ダイアログで保存先パスを取得してから保存する。
+
+Copy / Cut / PasteはMonaco Editorの選択範囲とClipboard APIを使ってフロントエンドで処理する。
+範囲未選択のCopy / Cutは現在行を対象にする。
+Pasteは選択範囲を置き換え、範囲未選択の場合はカーソル位置へ挿入する。
+PasteとCutによる編集はMonacoのUndo履歴に1操作として追加する。
+エディタ領域の右クリックではアプリ独自のCopy / Cut / Pasteメニューを表示し、Toolbarと同じ処理を呼び出す。
+範囲選択はMonaco Editorの標準Selectionを利用し、`Shift + ←/→/↑/↓` のkeydownで選択開始位置を保ったまま選択終端を更新する。
 
 ### Keyboard Shortcuts
 
@@ -438,6 +448,10 @@ OSごとの主修飾キー:
 | `Cmd/Ctrl + O` | YAMLファイルを開く |
 | `Cmd/Ctrl + S` | アクティブなタブを保存する |
 | `Cmd/Ctrl + W` | アクティブなタブを閉じる |
+| `Cmd/Ctrl + C` | Monaco Editor標準のコピー |
+| `Cmd/Ctrl + X` | Monaco Editor標準の切り取り |
+| `Cmd/Ctrl + V` | Monaco Editor標準の貼り付け |
+| `Shift + ←/→/↑/↓` | 範囲選択しながらカーソル移動 |
 | `Cmd/Ctrl + Tab` | 次のタブへ切り替える |
 | `Cmd/Ctrl + Shift + Tab` | 前のタブへ切り替える |
 | `Esc` | アプリ内確認ダイアログを閉じる |

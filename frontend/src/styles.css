@@ -287,6 +287,33 @@ button {
   background: #fbfbf8;
 }
 
+.editor-context-menu {
+	position: fixed;
+	z-index: 30;
+	display: grid;
+	min-width: 132px;
+	padding: 4px;
+	border: 1px solid #bfc7b6;
+	border-radius: 6px;
+	background: #ffffff;
+	box-shadow: 0 8px 24px rgb(32 35 31 / 18%);
+}
+
+.editor-context-menu button {
+	height: 30px;
+	padding: 0 10px;
+	border: 0;
+	border-radius: 4px;
+	color: #20231f;
+	background: transparent;
+	text-align: left;
+	cursor: pointer;
+}
+
+.editor-context-menu button:hover {
+	background: #eef4e7;
+}
+
 .schema-pane {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
