@@ -26,17 +26,17 @@ func TestAppSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Schema() returned error: %v", err)
 	}
-	if _, ok := root.FindChild("server"); !ok {
-		t.Fatal("Schema() missing server field")
+	if root.Name != "File" {
+		t.Fatalf("root.Name = %q, want File", root.Name)
 	}
-	if _, ok := root.FindChild("aws"); !ok {
-		t.Fatal("Schema() missing aws field")
+	if _, ok := root.FindChild("schema_version"); !ok {
+		t.Fatal("Schema() missing schema_version field")
 	}
-	if _, ok := root.FindChild("ecs"); !ok {
-		t.Fatal("Schema() missing ecs field")
+	if _, ok := root.FindChild("common"); !ok {
+		t.Fatal("Schema() missing common field")
 	}
-	if _, ok := root.FindChild("cloudformation"); !ok {
-		t.Fatal("Schema() missing cloudformation field")
+	if _, ok := root.FindChild("scenario"); !ok {
+		t.Fatal("Schema() missing scenario field")
 	}
 }
 
@@ -44,12 +44,12 @@ func TestAppValidateYAML(t *testing.T) {
 	t.Parallel()
 
 	app := testApp(t)
-	diagnostics, err := app.ValidateYAML("server:\n  host: localhost\napp:\n  mode: dev\n")
+	diagnostics, err := app.ValidateYAML("schema_version: v1\nunknown: true\n")
 	if err != nil {
 		t.Fatalf("ValidateYAML() returned error: %v", err)
 	}
 	if len(diagnostics) == 0 {
-		t.Fatal("ValidateYAML() diagnostics empty, want missing port diagnostic")
+		t.Fatal("ValidateYAML() diagnostics empty, want unknown key diagnostic")
 	}
 }
 
@@ -57,12 +57,12 @@ func TestAppCompleteYAML(t *testing.T) {
 	t.Parallel()
 
 	app := testApp(t)
-	candidates, err := app.CompleteYAML("server:\n  \n", 2, 3)
+	candidates, err := app.CompleteYAML("scenario:\n  \n", 2, 3)
 	if err != nil {
 		t.Fatalf("CompleteYAML() returned error: %v", err)
 	}
-	if len(candidates) != 2 {
-		t.Fatalf("CompleteYAML() candidates count = %d, want 2", len(candidates))
+	if !hasCandidate(candidates, "steps") {
+		t.Fatalf("CompleteYAML() candidates = %#v, want steps", candidates)
 	}
 }
 

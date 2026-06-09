@@ -184,6 +184,30 @@ type Server struct {
 `yaml` タグがないフィールドはYAML編集用スキーマの対象外とする。
 `json` や `xml` などYAML以外のタグが付いたフィールドが混在していても、`yaml` タグがあるフィールドだけを解析対象にする。
 
+#### tool / args 連動スキーマ
+
+YAML文書全体の基本構造を表すroot structはあらかじめ用意する。
+通常はroot structに沿って入力可能なキーと値を補完・検証する。
+
+root struct配下に `tool` と `args` の組み合わせがある場合、`tool` の値は参照用サンプルスキーマに含まれるGo structだけを選択肢とする。
+`tool` に入力できる値は `<パッケージ名>.<構造体名>` 形式とする。
+
+`args` の値は、同じ階層の `tool` で選択された構造体に応じて動的に解釈する。
+`args` 配下では、選択された構造体のYAML対象フィールドをキーとして補完・検証する。
+キー名は既存のstruct解析方針に合わせて `yaml` タグ名を使い、`yaml` タグがないフィールドは対象外とする。
+
+例:
+
+```yaml
+steps:
+  - tool: sampletools.CopyFile
+    args:
+      source: ./input.yaml
+      destination: ./output.yaml
+```
+
+この場合、`args` 配下では `sampletools.CopyFile` 構造体のYAML対象フィールドだけを入力可能なキーとして提示する。
+
 外部Goソース読み込みの対象外:
 
 - サブディレクトリ配下のGoファイル
@@ -339,36 +363,32 @@ enum:"dev,stg,prod"
 
 ---
 
-## 初期サンプルスキーマ
+## 組み込みRootスキーマ
 
-初期サンプルスキーマは `app/sampleschema` にGo structとして定義する。
-root定義と第一階層の構造体ごとにファイルを分離し、AWSなど実在の設定ファイルを参考にした複雑な構成を扱えることを確認する。
+組み込みRootスキーマは `app/rootschema` にGo structとして定義する。
+引数指定なしで起動した場合は `app/rootschema/scenario.go` の `File` をYAML文書全体のroot schemaとして登録する。
 
-Configの第一階層:
+Fileの第一階層:
 
-- server
-- app
-- aws
-- cloudformation
-- ecs
-- ssm
-- observability
-- deployment
-- security
+- schema_version
+- common
+- scenario
 
-`server` の例:
+`scenario` の例:
 
-- host
-- port
+- id
+- name
+- description
+- docs
+- steps
 
-`app` の例:
+`steps` の例:
 
-- mode
-
-`mode` の許可値:
-
-- dev
-- stg
+- id
+- name
+- day_ref
+- schedule_ref
+- action
 - prod
 
 サンプルスキーマにはJSON/XML専用の構造体も混在させる。

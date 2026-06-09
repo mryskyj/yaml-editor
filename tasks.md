@@ -40,6 +40,7 @@
 - [x] サンプルスキーマのroot型名固定を解除する
 - [x] 配布用frontendにMonaco Editorアセットを同梱する
 - [x] Go依存ライブラリをvendor化する
+- [x] 組み込みRootスキーマを `app/rootschema.File` に切り替える
 
 ---
 
@@ -56,6 +57,7 @@
 - [ ] フロントエンドのタブ状態、API正規化、ショートカット、保存フローに自動テストを追加する
 - [ ] 外部スキーマ読み込み失敗時にGUI上で原因を確認できるようにする
 - [ ] 複数スキーマの登録・切り替え方式を検討する
+- [ ] `tool` の選択値に応じて `args` 配下の補完・検証スキーマを切り替える
 - [ ] macOSビルド時のlinker警告を調査し、deployment targetとビルド環境の設定を整理する
 
 ---
@@ -330,3 +332,10 @@
 - 通常のWindowsビルド、Windows npmなしビルド、macOS appビルドで `-mod=vendor` を指定するようにした
 - Release workflowとWindows Artifact workflowのGoテストを `go test -mod=vendor ./...` に変更した
 - `go test -mod=vendor ./...` と `go build -mod=vendor ./cmd/yaml-struct-editor` でvendor依存の利用を確認した
+
+### 組み込みRootスキーマを `app/rootschema.File` に切り替える
+
+- `app/rootschema/scenario.go` の `File` を組み込みRootスキーマとして登録するようにした
+- 組み込みスキーマのembed対象を `app/sampleschema` から `app/rootschema` に変更した
+- root structを自動検出せず、`File` を明示指定して登録するようにした
+- App serviceのスキーマ、検証、補完テストを `File` root前提に更新した
