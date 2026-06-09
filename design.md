@@ -57,6 +57,7 @@ Backend
 - macOSで生のGoバイナリをFinderから直接起動するとTerminalが表示されるため、ユーザー起動対象は `.app` とする
 - Windowsは `-ldflags="-H windowsgui"` を指定してGUIアプリとしてビルドする
 - 配布用ビルド前にfrontend buildを実行し、埋め込みアセットを最新化する
+- frontend buildではMonaco Editorの `min/vs` アセットを `frontend/dist/vs` にコピーし、production UIは `/vs` から読み込む
 - 配布用ビルドはWailsのproduction tagを付け、開発用ログ出力を抑制する
 - Windows向けには、事前生成済みの `frontend/dist` を使ってnpmなしでexeを作成する `scripts/build-windows-offline.ps1` を用意する
 - npmなしのWindowsビルドはUIを再生成しないため、接続端末で作成した `frontend/dist` をそのまま埋め込む
@@ -594,6 +595,8 @@ Goバックエンドの業務ロジックを中心に単体テストを作成す
 ## Windows npmなしビルド
 
 オフライン端末などnpm環境を作りたくないWindows環境では、接続端末で事前生成した `frontend/dist` を利用してGo buildだけを実行する。
+`frontend/dist` にはReactアプリ本体に加えてMonaco Editorの `/vs` アセットも含める。
+これにより配布用exeはMonacoのloaderやworkerを外部CDNから取得しない。
 
 ```powershell
 scripts\build-windows-offline.ps1
@@ -602,6 +605,7 @@ scripts\build-windows-offline.ps1
 前提:
 
 - `frontend/dist/index.html` が存在する
+- `frontend/dist/vs/loader.js` が存在する
 - Go buildに必要なGo環境がある
 - UIを変更した場合は接続端末で `npm run build` を実行し、生成済み `frontend/dist` を反映してから使う
 

@@ -38,6 +38,7 @@
 - [x] FeatureブランチWindows artifactビルドを実装する
 - [x] Go toolchainを1.26.2へ更新する
 - [x] サンプルスキーマのroot型名固定を解除する
+- [x] 配布用frontendにMonaco Editorアセットを同梱する
 
 ---
 
@@ -314,3 +315,10 @@
 - サンプルスキーマ差し替え時にroot struct名を `Config` に固定する必要をなくした
 - `schemas/alternate-sample` を追加し、root型名が `Config` ではないスキーマへ動的に切り替えられることを確認した
 - root自動検出とサンプルスキーマ静的解析の単体テストを追加した
+
+### 配布用frontendにMonaco Editorアセットを同梱する
+
+- production build時に `monaco-editor/min/vs` を `frontend/dist/vs` へコピーするようにした
+- production UIではMonaco Editorのloader参照先を `/vs` にし、CDNへ依存しないようにした
+- 開発サーバーでは従来どおりVite経由の開発動作を維持するようにした
+- Goのembed対象に `frontend/dist/vs/loader.js` が含まれる単体テストを追加した
