@@ -7,6 +7,7 @@ import (
 	"go/token"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -147,7 +148,7 @@ func parseSourceStructsFS(sourceFS fs.FS, dir string) (map[string]*ast.StructTyp
 			continue
 		}
 
-		filePath := filepath.Join(dir, name)
+		filePath := path.Join(dir, name)
 		source, err := fs.ReadFile(sourceFS, filePath)
 		if err != nil {
 			return nil, fmt.Errorf("schema source parse failed: read %s: %w", filePath, err)
