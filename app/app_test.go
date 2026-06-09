@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/mryskyj/yaml-editor/internal/completion"
 	filex "github.com/mryskyj/yaml-editor/internal/file"
 	"github.com/mryskyj/yaml-editor/internal/schema"
 )
@@ -65,6 +66,46 @@ func TestAppCompleteYAML(t *testing.T) {
 	}
 }
 
+func TestNewWithSchemaSourceAutoDetectsAlternateSample(t *testing.T) {
+	t.Parallel()
+
+	app, err := NewWithSchemaSource(filepath.Join("..", "schemas", "alternate-sample"), "")
+	if err != nil {
+		t.Fatalf("NewWithSchemaSource() returned error: %v", err)
+	}
+
+	root, err := app.Schema()
+	if err != nil {
+		t.Fatalf("Schema() returned error: %v", err)
+	}
+	if root.Name != "Workspace" {
+		t.Fatalf("root.Name = %q, want Workspace", root.Name)
+	}
+	if _, ok := root.FindChild("project"); !ok {
+		t.Fatal("Schema() missing project field")
+	}
+	if _, ok := root.FindChild("server"); ok {
+		t.Fatal("Schema() includes built-in sample server field")
+	}
+}
+
+func TestNewWithSchemaSourceUsesExplicitAlternateRoot(t *testing.T) {
+	t.Parallel()
+
+	app, err := NewWithSchemaSource(filepath.Join("..", "schemas", "alternate-sample"), "Workspace")
+	if err != nil {
+		t.Fatalf("NewWithSchemaSource() returned error: %v", err)
+	}
+
+	candidates, err := app.CompleteYAML("database:\n  \n", 2, 3)
+	if err != nil {
+		t.Fatalf("CompleteYAML() returned error: %v", err)
+	}
+	if !hasCandidate(candidates, "driver") {
+		t.Fatalf("CompleteYAML() candidates = %#v, want driver", candidates)
+	}
+}
+
 func TestAppFileOperations(t *testing.T) {
 	t.Parallel()
 
@@ -105,4 +146,13 @@ func testApp(t *testing.T) *App {
 		filex.NewService(filex.NewRecentStore(recentPath, 10)),
 		schema.NewRegistry(),
 	)
+}
+
+func hasCandidate(candidates []completion.Candidate, name string) bool {
+	for _, candidate := range candidates {
+		if candidate.Name == name {
+			return true
+		}
+	}
+	return false
 }

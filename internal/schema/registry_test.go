@@ -50,7 +50,7 @@ func TestRegistryRegisterFromDirAndRoot(t *testing.T) {
 	t.Parallel()
 
 	registry := NewRegistry()
-	if err := registry.RegisterFromDir(filepath.Join("..", "..", "schemas", "external-sample"), "Config"); err != nil {
+	if err := registry.RegisterFromDir(filepath.Join("..", "..", "schemas", "external-sample"), ""); err != nil {
 		t.Fatalf("RegisterFromDir() returned error: %v", err)
 	}
 
@@ -63,6 +63,23 @@ func TestRegistryRegisterFromDirAndRoot(t *testing.T) {
 	}
 	if _, ok := root.FindChild("server"); !ok {
 		t.Fatal("Root() schema does not include server field")
+	}
+}
+
+func TestRegistrySetRoot(t *testing.T) {
+	t.Parallel()
+
+	registry := NewRegistry()
+	if err := registry.SetRoot(&Field{Name: "CustomRoot", Type: FieldTypeStruct}); err != nil {
+		t.Fatalf("SetRoot() returned error: %v", err)
+	}
+
+	root, err := registry.Root()
+	if err != nil {
+		t.Fatalf("Root() returned error: %v", err)
+	}
+	if root.Name != "CustomRoot" {
+		t.Fatalf("root.Name = %q, want CustomRoot", root.Name)
 	}
 }
 

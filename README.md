@@ -46,12 +46,23 @@ go run ./cmd/yaml-struct-editor
 
 ## External Schema
 
-外部Goソースをスキーマとして使う場合は、Goファイルを含むディレクトリとルートstruct名を指定します。
+外部Goソースをスキーマとして使う場合は、Goファイルを含むディレクトリを指定します。
+ルートstruct名は省略でき、YAMLタグ付きフィールドを持ち、他structから参照されていないstructが1つだけの場合は自動検出されます。
 
 ```sh
-go run ./cmd/yaml-struct-editor \
-  --schema-dir schemas/external-sample \
-  --schema-type Config
+go run ./cmd/yaml-struct-editor --schema-dir schemas/external-sample
+```
+
+root候補が複数ある場合は、`--schema-type` で明示します。
+
+```sh
+go run ./cmd/yaml-struct-editor --schema-dir schemas/external-sample --schema-type Config
+```
+
+root型名が `Config` ではないスキーマも利用できます。
+
+```sh
+go run ./cmd/yaml-struct-editor --schema-dir schemas/alternate-sample
 ```
 
 外部スキーマの対象は、指定ディレクトリ直下の `.go` ファイルです。`*_test.go` とサブディレクトリは読み込み対象外です。

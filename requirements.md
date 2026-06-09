@@ -133,10 +133,13 @@ Goコードのコンパイル、実行、動的更新は行わない。
 起動時の指定:
 
 - `--schema-dir`: Goソースファイルを含むフォルダ
-- `--schema-type`: ルートstruct名
+- `--schema-type`: ルートstruct名。省略時は自動検出する
 
 `--schema-dir` を指定した場合、指定フォルダ直下の複数 `.go` ファイルを読み込む。
 フォルダ内のファイルをまたいでstructや型を参照している場合も、同一フォルダ内で定義された名前付きstructであれば依存関係を解決し、YAML補完・検証・スキーマ表示に反映する。
+YAML文書全体を表すroot schemaは内部的に必要だが、struct名を `Config` などの固定名にする必要はない。
+`--schema-type` を省略した場合は、YAMLタグ付きフィールドを持ち、他structから参照されていないstructをrootとして自動検出する。
+root候補が複数ある場合のみ、`--schema-type` で明示する。
 
 例:
 

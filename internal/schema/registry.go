@@ -42,6 +42,19 @@ func (r *Registry) RegisterFromDir(dir string, rootType string) error {
 	return nil
 }
 
+// SetRoot stores an already parsed root schema.
+func (r *Registry) SetRoot(root *Field) error {
+	if r == nil {
+		return fmt.Errorf("schema registry is nil")
+	}
+	if root == nil {
+		return fmt.Errorf("root schema is nil")
+	}
+
+	r.root = root
+	return nil
+}
+
 // Root returns the registered root schema.
 func (r *Registry) Root() (*Field, error) {
 	if r == nil {

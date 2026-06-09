@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -16,9 +17,6 @@ import (
 func ParseDir(dir string, rootType string) (*Field, error) {
 	if strings.TrimSpace(dir) == "" {
 		return nil, fmt.Errorf("schema source parse failed: schema dir is required")
-	}
-	if strings.TrimSpace(rootType) == "" {
-		return nil, fmt.Errorf("schema source parse failed: schema type is required")
 	}
 
 	info, err := os.Stat(dir)
@@ -32,6 +30,44 @@ func ParseDir(dir string, rootType string) (*Field, error) {
 	structs, err := parseSourceStructs(dir)
 	if err != nil {
 		return nil, err
+	}
+
+	rootType = strings.TrimSpace(rootType)
+	if rootType == "" {
+		rootType, err = detectSourceRootType(structs)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	root, ok := structs[rootType]
+	if !ok {
+		return nil, fmt.Errorf("schema source parse failed: root struct %q not found", rootType)
+	}
+
+	return parseSourceStruct(rootType, root, structs, map[string]bool{})
+}
+
+// ParseFS converts Go struct definitions in a filesystem directory into a YAML editor schema field.
+func ParseFS(sourceFS fs.FS, dir string, rootType string) (*Field, error) {
+	if sourceFS == nil {
+		return nil, fmt.Errorf("schema source parse failed: source filesystem is required")
+	}
+	if strings.TrimSpace(dir) == "" {
+		return nil, fmt.Errorf("schema source parse failed: schema dir is required")
+	}
+
+	structs, err := parseSourceStructsFS(sourceFS, dir)
+	if err != nil {
+		return nil, err
+	}
+
+	rootType = strings.TrimSpace(rootType)
+	if rootType == "" {
+		rootType, err = detectSourceRootType(structs)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	root, ok := structs[rootType]
@@ -91,6 +127,125 @@ func parseSourceStructs(dir string) (map[string]*ast.StructType, error) {
 	}
 
 	return structs, nil
+}
+
+func parseSourceStructsFS(sourceFS fs.FS, dir string) (map[string]*ast.StructType, error) {
+	entries, err := fs.ReadDir(sourceFS, dir)
+	if err != nil {
+		return nil, fmt.Errorf("schema source parse failed: %w", err)
+	}
+
+	fset := token.NewFileSet()
+	structs := make(map[string]*ast.StructType)
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+
+		filePath := filepath.Join(dir, name)
+		source, err := fs.ReadFile(sourceFS, filePath)
+		if err != nil {
+			return nil, fmt.Errorf("schema source parse failed: read %s: %w", filePath, err)
+		}
+		if err := collectSourceStructs(fset, filePath, source, structs); err != nil {
+			return nil, err
+		}
+	}
+
+	return structs, nil
+}
+
+func collectSourceStructs(fset *token.FileSet, filePath string, source []byte, structs map[string]*ast.StructType) error {
+	file, err := parser.ParseFile(fset, filePath, source, parser.ParseComments)
+	if err != nil {
+		return fmt.Errorf("schema source parse failed: parse %s: %w", filePath, err)
+	}
+
+	for _, decl := range file.Decls {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if !ok || genDecl.Tok != token.TYPE {
+			continue
+		}
+
+		for _, spec := range genDecl.Specs {
+			typeSpec, ok := spec.(*ast.TypeSpec)
+			if !ok {
+				continue
+			}
+			if typeSpec.TypeParams != nil && typeSpec.TypeParams.NumFields() > 0 {
+				return fmt.Errorf("schema source parse failed: generic type %q is not supported", typeSpec.Name.Name)
+			}
+
+			structType, ok := typeSpec.Type.(*ast.StructType)
+			if !ok {
+				return fmt.Errorf("schema source parse failed: type alias or non-struct type %q is not supported", typeSpec.Name.Name)
+			}
+			structs[typeSpec.Name.Name] = structType
+		}
+	}
+
+	return nil
+}
+
+func detectSourceRootType(structs map[string]*ast.StructType) (string, error) {
+	referenced := make(map[string]bool)
+	for _, structType := range structs {
+		for _, sourceField := range structType.Fields.List {
+			if _, ok, err := sourceYAMLName(sourceField); err != nil {
+				return "", err
+			} else if ok {
+				collectSourceReferences(sourceField.Type, structs, referenced)
+			}
+		}
+	}
+
+	candidates := make([]string, 0)
+	for name, structType := range structs {
+		if referenced[name] || !sourceStructHasYAMLField(structType) {
+			continue
+		}
+		candidates = append(candidates, name)
+	}
+
+	if len(candidates) == 1 {
+		return candidates[0], nil
+	}
+	if len(candidates) == 0 {
+		return "", fmt.Errorf("schema source parse failed: root struct could not be detected")
+	}
+	return "", fmt.Errorf("schema source parse failed: root struct is ambiguous: %s", strings.Join(candidates, ", "))
+}
+
+func sourceStructHasYAMLField(structType *ast.StructType) bool {
+	if structType == nil || structType.Fields == nil {
+		return false
+	}
+	for _, sourceField := range structType.Fields.List {
+		if _, ok, err := sourceYAMLName(sourceField); err == nil && ok {
+			return true
+		}
+	}
+	return false
+}
+
+func collectSourceReferences(expr ast.Expr, structs map[string]*ast.StructType, referenced map[string]bool) {
+	switch t := expr.(type) {
+	case *ast.Ident:
+		if _, ok := structs[t.Name]; ok {
+			referenced[t.Name] = true
+		}
+	case *ast.StarExpr:
+		collectSourceReferences(t.X, structs, referenced)
+	case *ast.ArrayType:
+		collectSourceReferences(t.Elt, structs, referenced)
+	case *ast.MapType:
+		collectSourceReferences(t.Value, structs, referenced)
+	}
 }
 
 func parseSourceStruct(name string, structType *ast.StructType, structs map[string]*ast.StructType, stack map[string]bool) (*Field, error) {

@@ -11,7 +11,7 @@ import (
 
 func main() {
 	schemaDir := flag.String("schema-dir", "", "directory containing Go source schema files")
-	schemaType := flag.String("schema-type", "Config", "root schema struct name")
+	schemaType := flag.String("schema-type", "", "root schema struct name; auto-detected when omitted")
 	flag.Parse()
 
 	service, err := appservice.NewWithSchemaSource(*schemaDir, *schemaType)

@@ -37,6 +37,7 @@
 - [x] Windows npmなしビルドを実装する
 - [x] FeatureブランチWindows artifactビルドを実装する
 - [x] Go toolchainを1.26.2へ更新する
+- [x] サンプルスキーマのroot型名固定を解除する
 
 ---
 
@@ -303,3 +304,13 @@
 - `go.mod` のGo directiveを `1.26.2` に更新した
 - GitHub Actionsの `actions/setup-go` は `go-version-file: go.mod` を参照するため、CIのGo toolchainも `1.26.2` へ更新される
 - `go test ./...` でGoテストを確認した
+
+### サンプルスキーマのroot型名固定を解除する
+
+- 組み込みサンプルスキーマを `sampleschema.Config{}` のreflect解析からGoソース静的解析へ変更した
+- YAMLタグ付きフィールドを持ち、他structから参照されていないstructをrootとして自動検出するようにした
+- `--schema-type` を省略した場合もroot候補が1つであれば外部スキーマを登録できるようにした
+- root候補が複数ある場合は曖昧なスキーマとして明示エラーにするようにした
+- サンプルスキーマ差し替え時にroot struct名を `Config` に固定する必要をなくした
+- `schemas/alternate-sample` を追加し、root型名が `Config` ではないスキーマへ動的に切り替えられることを確認した
+- root自動検出とサンプルスキーマ静的解析の単体テストを追加した

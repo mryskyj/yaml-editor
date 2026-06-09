@@ -9,9 +9,9 @@ import (
 func TestConfigSchemaIncludesTopLevelSections(t *testing.T) {
 	t.Parallel()
 
-	root, err := schema.Parse(Config{})
+	root, err := schema.ParseDir(".", "")
 	if err != nil {
-		t.Fatalf("schema.Parse() returned error: %v", err)
+		t.Fatalf("schema.ParseDir() returned error: %v", err)
 	}
 
 	for _, name := range []string{
@@ -34,9 +34,9 @@ func TestConfigSchemaIncludesTopLevelSections(t *testing.T) {
 func TestConfigSchemaUsesOnlyYAMLTaggedFields(t *testing.T) {
 	t.Parallel()
 
-	root, err := schema.Parse(Config{})
+	root, err := schema.ParseDir(".", "")
 	if err != nil {
-		t.Fatalf("schema.Parse() returned error: %v", err)
+		t.Fatalf("schema.ParseDir() returned error: %v", err)
 	}
 
 	if _, ok := root.FindChild("JSONImport"); ok {

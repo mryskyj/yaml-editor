@@ -57,6 +57,87 @@ func TestParseDirRejectsMissingRoot(t *testing.T) {
 	}
 }
 
+func TestParseDirDetectsRootWhenTypeIsEmpty(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeSourceFile(t, dir, "schema.go", `package sample
+
+type CustomRoot struct {
+	Server Server `+"`yaml:\"server\"`"+`
+}
+
+type Server struct {
+	Host string `+"`yaml:\"host\"`"+`
+}
+`)
+
+	root, err := ParseDir(dir, "")
+	if err != nil {
+		t.Fatalf("ParseDir() returned error: %v", err)
+	}
+	if root.Name != "CustomRoot" {
+		t.Fatalf("root.Name = %q, want CustomRoot", root.Name)
+	}
+	if _, ok := root.FindChild("server"); !ok {
+		t.Fatal("ParseDir() root missing server field")
+	}
+}
+
+func TestParseDirParsesAlternateSampleWithoutConfigRoot(t *testing.T) {
+	t.Parallel()
+
+	root, err := ParseDir(filepath.Join("..", "..", "schemas", "alternate-sample"), "")
+	if err != nil {
+		t.Fatalf("ParseDir() returned error: %v", err)
+	}
+	if root.Name != "Workspace" {
+		t.Fatalf("root.Name = %q, want Workspace", root.Name)
+	}
+	if _, ok := root.FindChild("project"); !ok {
+		t.Fatal("ParseDir() root missing project field")
+	}
+	if _, ok := root.FindChild("server"); ok {
+		t.Fatal("ParseDir() unexpectedly included external-sample server field")
+	}
+}
+
+func TestParseDirParsesAlternateSampleWithExplicitRoot(t *testing.T) {
+	t.Parallel()
+
+	root, err := ParseDir(filepath.Join("..", "..", "schemas", "alternate-sample"), "Workspace")
+	if err != nil {
+		t.Fatalf("ParseDir() returned error: %v", err)
+	}
+
+	database := mustChild(t, root, "database")
+	driver := mustChild(t, database, "driver")
+	wantEnum := []string{"postgres", "mysql", "sqlite"}
+	if !reflect.DeepEqual(driver.Enum, wantEnum) {
+		t.Fatalf("driver.Enum = %#v, want %#v", driver.Enum, wantEnum)
+	}
+}
+
+func TestParseDirRejectsAmbiguousAutoRoot(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeSourceFile(t, dir, "schema.go", `package sample
+
+type First struct {
+	Name string `+"`yaml:\"name\"`"+`
+}
+
+type Second struct {
+	Enabled bool `+"`yaml:\"enabled\"`"+`
+}
+`)
+
+	if _, err := ParseDir(dir, ""); err == nil {
+		t.Fatal("ParseDir() error = nil, want ambiguous root error")
+	}
+}
+
 func TestParseDirRejectsMissingDirectory(t *testing.T) {
 	t.Parallel()
 
