@@ -97,6 +97,12 @@ func TestAppCompleteYAMLToolValue(t *testing.T) {
 	if !hasCandidate(candidates, "sampleschema.") {
 		t.Fatalf("CompleteYAML() candidates = %#v, want sampleschema.", candidates)
 	}
+	if !hasCandidate(candidates, "cloud.") {
+		t.Fatalf("CompleteYAML() candidates = %#v, want cloud.", candidates)
+	}
+	if !hasCandidate(candidates, "gui.") {
+		t.Fatalf("CompleteYAML() candidates = %#v, want gui.", candidates)
+	}
 
 	candidates, err = app.CompleteYAML("scenario:\n  steps:\n    - action:\n        tool: \"sam\n", 4, 19)
 	if err != nil {
@@ -112,6 +118,22 @@ func TestAppCompleteYAMLToolValue(t *testing.T) {
 	}
 	if !hasCandidate(candidates, "Config") {
 		t.Fatalf("CompleteYAML() candidates = %#v, want Config", candidates)
+	}
+
+	candidates, err = app.CompleteYAML("scenario:\n  steps:\n    - action:\n        tool: \"cloud.\n", 4, 22)
+	if err != nil {
+		t.Fatalf("CompleteYAML() returned error: %v", err)
+	}
+	if !hasCandidate(candidates, "ecs.") {
+		t.Fatalf("CompleteYAML() candidates = %#v, want ecs.", candidates)
+	}
+
+	candidates, err = app.CompleteYAML("scenario:\n  steps:\n    - action:\n        tool: \"cloud.ecs.\n", 4, 26)
+	if err != nil {
+		t.Fatalf("CompleteYAML() returned error: %v", err)
+	}
+	if !hasCandidate(candidates, "RunTask") {
+		t.Fatalf("CompleteYAML() candidates = %#v, want RunTask", candidates)
 	}
 }
 

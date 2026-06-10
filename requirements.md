@@ -181,6 +181,7 @@ type Server struct {
 - bool
 - int
 - float
+- `type Mode string` や `type Priority int` のような名前付きスカラー型
 
 取得対象タグ
 
@@ -192,6 +193,7 @@ type Server struct {
 
 `yaml` タグがないフィールドはYAML編集用スキーマの対象外とする。
 `json` や `xml` などYAML以外のタグが付いたフィールドが混在していても、`yaml` タグがあるフィールドだけを解析対象にする。
+Goソース内に `const`、メソッド、YAML対象外のstruct、名前付きスカラー型が混在していても、YAML対象structの解析を継続する。
 
 #### tool / args 連動スキーマ
 
@@ -204,6 +206,9 @@ root struct配下に `tool` と `args` の組み合わせがある場合、`tool
 `tool` 名を補完確定した場合、同じ階層に `args` が未定義であれば `args:` と選択された構造体のYAML対象フィールド名を自動入力する。
 同じ階層に既存の `args` がある状態で `tool` 名を補完し直した場合は、既存の `args` ブロックを削除し、修正後の `tool` 名に応じた `args` ブロックへ置き換える。
 引数指定なしの場合は組み込みの `app/sampleschema`、`--schema-dir` 指定時は指定フォルダ内のGo structを参照用スキーマとして扱う。
+参照用スキーマはサブディレクトリも再帰的に読み込み、ディレクトリ階層を `.` 区切りの名前空間として `tool` 識別子に反映する。
+例として `app/sampleschema/cloud/ecs` 配下の `RunTask` は `"cloud.ecs.RunTask"` として扱う。
+組み込み `app/sampleschema` には、名前付きスカラー型、const、メソッド、YAML対象外struct、slice、mapを混在させ、実運用に近いGoソースでも適切に解析できることを確認するサンプルを含める。
 
 `args` の値は、同じ階層の `tool` で選択された構造体に応じて動的に解釈する。
 `args` 配下では、選択された構造体のYAML対象フィールドをキーとして補完・検証する。
@@ -221,7 +226,7 @@ steps:
 
 この場合、`args` 配下では `sampletools.CopyFile` 構造体のYAML対象フィールドだけを入力可能なキーとして提示する。
 
-外部Goソース読み込みの対象外:
+root schema用の外部Goソース読み込みの対象外:
 
 - サブディレクトリ配下のGoファイル
 - import先パッケージの型

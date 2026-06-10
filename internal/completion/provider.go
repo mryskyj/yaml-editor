@@ -59,51 +59,45 @@ func toolCandidates(line string, column int, toolSchemas map[string]*schema.Fiel
 	}
 
 	token := toolTokenAtCursor(line, column)
-	if packageName, _, hasPackage := strings.Cut(token, "."); hasPackage {
-		return toolStructCandidates(packageName, toolSchemas)
-	}
-
-	return toolPackageCandidates(toolSchemas)
-}
-
-func toolPackageCandidates(toolSchemas map[string]*schema.Field) []Candidate {
-	packages := make(map[string]bool)
+	prefix := strings.TrimSuffix(token, toolTokenLastSegment(token))
+	segments := make(map[string]bool)
 	for name := range toolSchemas {
-		packageName, _, ok := strings.Cut(name, ".")
-		if !ok || packageName == "" {
+		if !strings.HasPrefix(name, prefix) {
 			continue
 		}
-		packages[packageName] = true
+		remainder := strings.TrimPrefix(name, prefix)
+		if remainder == "" {
+			continue
+		}
+		segment, _, hasRest := strings.Cut(remainder, ".")
+		if segment == "" {
+			continue
+		}
+		if hasRest {
+			segments[segment+"."] = true
+			continue
+		}
+		segments[segment] = true
 	}
 
-	names := make([]string, 0, len(packages))
-	for name := range packages {
-		names = append(names, name+".")
+	names := make([]string, 0, len(segments))
+	for name := range segments {
+		names = append(names, name)
 	}
 	sort.Strings(names)
 
 	return stringCandidates(names)
 }
 
-func toolStructCandidates(packageName string, toolSchemas map[string]*schema.Field) []Candidate {
-	if packageName == "" {
-		return nil
+func toolTokenLastSegment(token string) string {
+	if token == "" {
+		return ""
 	}
-
-	structs := make([]string, 0)
-	prefix := packageName + "."
-	for name := range toolSchemas {
-		if !strings.HasPrefix(name, prefix) {
-			continue
-		}
-		structName := strings.TrimPrefix(name, prefix)
-		if structName != "" && !strings.Contains(structName, ".") {
-			structs = append(structs, structName)
-		}
+	index := strings.LastIndex(token, ".")
+	if index < 0 {
+		return token
 	}
-	sort.Strings(structs)
-
-	return stringCandidates(structs)
+	return token[index+1:]
 }
 
 func stringCandidates(names []string) []Candidate {

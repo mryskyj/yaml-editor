@@ -152,6 +152,39 @@ func TestProvideToolStructCandidatesAfterPackage(t *testing.T) {
 	}
 }
 
+func TestProvideToolCandidatesAcrossNestedNamespaces(t *testing.T) {
+	t.Parallel()
+
+	toolSchemas := completionToolSchemas(t)
+	toolSchemas["cloud.ecs.RunTask"] = toolSchemas["gui.AddAccount"]
+
+	candidates := ProvideWithTools(
+		"steps:\n  - action:\n      tool: \"cloud.\n",
+		3,
+		20,
+		completionSchema(t),
+		toolSchemas,
+	)
+	names := candidateNames(candidates)
+	want := []string{"ecs."}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("candidate names = %#v, want %#v", names, want)
+	}
+
+	candidates = ProvideWithTools(
+		"steps:\n  - action:\n      tool: \"cloud.ecs.\n",
+		3,
+		24,
+		completionSchema(t),
+		toolSchemas,
+	)
+	names = candidateNames(candidates)
+	want = []string{"RunTask"}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("candidate names = %#v, want %#v", names, want)
+	}
+}
+
 func TestProvideToolArgsCandidates(t *testing.T) {
 	t.Parallel()
 

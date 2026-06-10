@@ -6,7 +6,7 @@ import (
 	"github.com/mryskyj/yaml-editor/internal/schema"
 )
 
-//go:embed rootschema/*.go sampleschema/*.go
+//go:embed rootschema/*.go sampleschema
 var sampleSchemaSource embed.FS
 
 func registerSampleSchema(registry *schema.Registry) error {

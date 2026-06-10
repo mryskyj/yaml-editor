@@ -209,6 +209,49 @@ type Config struct {
 	}
 }
 
+func TestParseDirParsesNamedScalarTypesAndIgnoresNonSchemaDeclarations(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeSourceFile(t, dir, "config.go", `package sample
+
+type Mode string
+type Priority int
+
+const DefaultMode Mode = "active"
+
+type Config struct {
+	Mode Mode `+"`yaml:\"mode\" enum:\"active,disabled\"`"+`
+	Priorities []Priority `+"`yaml:\"priorities\"`"+`
+	Labels map[Mode]string `+"`yaml:\"labels\"`"+`
+}
+
+func (config Config) DefaultMode() Mode {
+	return DefaultMode
+}
+`)
+
+	root, err := ParseDir(dir, "Config")
+	if err != nil {
+		t.Fatalf("ParseDir() returned error: %v", err)
+	}
+
+	mode := mustChild(t, root, "mode")
+	if mode.Type != FieldTypeString {
+		t.Fatalf("mode.Type = %q, want string", mode.Type)
+	}
+
+	priorities := mustChild(t, root, "priorities")
+	if priorities.Type != FieldTypeSlice || priorities.Item == nil || priorities.Item.Type != FieldTypeInt {
+		t.Fatalf("priorities = %#v, want int slice", priorities)
+	}
+
+	labels := mustChild(t, root, "labels")
+	if labels.Type != FieldTypeMap || labels.MapKeyType != FieldTypeString || labels.MapValue == nil || labels.MapValue.Type != FieldTypeString {
+		t.Fatalf("labels = %#v, want map with named string key", labels)
+	}
+}
+
 func TestParseDirRejectsGenericType(t *testing.T) {
 	t.Parallel()
 
@@ -253,8 +296,37 @@ func TestParseToolSchemasFS(t *testing.T) {
 			Data: []byte(`package gui
 
 type AddAccount struct {
-	Name string ` + "`yaml:\"Name\"`" + `
-	Code string ` + "`yaml:\"Code\"`" + `
+Name string ` + "`yaml:\"Name\"`" + `
+Code string ` + "`yaml:\"Code\"`" + `
+Kind accountKind ` + "`yaml:\"Kind\"`" + `
+Metadata map[accountMetadataKey]string ` + "`yaml:\"Metadata\"`" + `
+Contacts []AddAccountContact ` + "`yaml:\"Contacts\"`" + `
+}
+
+type accountKind string
+type accountMetadataKey string
+
+const defaultKind accountKind = "standard"
+
+type AddAccountContact struct {
+Name string ` + "`yaml:\"Name\"`" + `
+}
+
+type runtimeOnly struct {
+SessionID string
+}
+
+func (account AddAccount) DefaultKind() accountKind {
+return defaultKind
+}
+`),
+		},
+		"tools/cloud/ecs/task.go": {
+			Data: []byte(`package ecs
+
+type RunTask struct {
+Cluster string ` + "`yaml:\"cluster\"`" + `
+Count int ` + "`yaml:\"count\"`" + `
 }
 `),
 		},
@@ -274,6 +346,26 @@ type AddAccount struct {
 	}
 	if _, ok := addAccount.FindChild("Code"); !ok {
 		t.Fatal("gui.AddAccount missing Code field")
+	}
+	if kind, ok := addAccount.FindChild("Kind"); !ok || kind.Type != FieldTypeString {
+		t.Fatalf("gui.AddAccount Kind = %#v, want named string field", kind)
+	}
+	if metadata, ok := addAccount.FindChild("Metadata"); !ok || metadata.Type != FieldTypeMap || metadata.MapKeyType != FieldTypeString {
+		t.Fatalf("gui.AddAccount Metadata = %#v, want named string map key", metadata)
+	}
+	if contacts, ok := addAccount.FindChild("Contacts"); !ok || contacts.Type != FieldTypeSlice || contacts.Item == nil || contacts.Item.Type != FieldTypeStruct {
+		t.Fatalf("gui.AddAccount Contacts = %#v, want struct slice", contacts)
+	}
+
+	runTask := toolSchemas["cloud.ecs.RunTask"]
+	if runTask == nil {
+		t.Fatalf("toolSchemas = %#v, want cloud.ecs.RunTask", toolSchemas)
+	}
+	if _, ok := runTask.FindChild("cluster"); !ok {
+		t.Fatal("cloud.ecs.RunTask missing cluster field")
+	}
+	if _, ok := runTask.FindChild("count"); !ok {
+		t.Fatal("cloud.ecs.RunTask missing count field")
 	}
 }
 

@@ -111,7 +111,7 @@ func (r *Registry) Root() (*Field, error) {
 	return r.root, nil
 }
 
-// ToolSchemas returns registered tool argument schemas keyed by <package>.<struct>.
+// ToolSchemas returns registered tool argument schemas keyed by <namespace>.<struct>.
 func (r *Registry) ToolSchemas() map[string]*Field {
 	if r == nil || len(r.toolSchemas) == 0 {
 		return nil
