@@ -121,6 +121,51 @@ func TestValidateEnumMismatch(t *testing.T) {
 	assertContainsDiagnostic(t, diagnostics, "key \"mode\" must be one of: dev, stg, prod")
 }
 
+func TestValidateToolArgs(t *testing.T) {
+	t.Parallel()
+
+	diagnostics := ValidateWithTools(`
+steps:
+  - action:
+      tool: "gui.AddAccount"
+      args:
+        Name: aiu
+        Code: "11111"
+`, validatorToolRootSchema(t), validatorToolSchemas(t))
+
+	if len(diagnostics) != 0 {
+		t.Fatalf("ValidateWithTools() diagnostics = %#v, want none", diagnostics)
+	}
+}
+
+func TestValidateToolArgsUndefinedKey(t *testing.T) {
+	t.Parallel()
+
+	diagnostics := ValidateWithTools(`
+steps:
+  - action:
+      tool: "gui.AddAccount"
+      args:
+        Unknown: value
+`, validatorToolRootSchema(t), validatorToolSchemas(t))
+
+	assertContainsDiagnostic(t, diagnostics, "undefined key \"Unknown\"")
+}
+
+func TestValidateUnknownTool(t *testing.T) {
+	t.Parallel()
+
+	diagnostics := ValidateWithTools(`
+steps:
+  - action:
+      tool: "gui.Missing"
+      args:
+        Unknown: value
+`, validatorToolRootSchema(t), validatorToolSchemas(t))
+
+	assertContainsDiagnostic(t, diagnostics, "tool \"gui.Missing\" is not registered")
+}
+
 func TestValidateUnsupportedYAMLFeatureDiagnostic(t *testing.T) {
 	t.Parallel()
 
@@ -133,6 +178,40 @@ func TestValidateNilSchema(t *testing.T) {
 
 	diagnostics := Validate("server:\n  host: localhost\n", nil)
 	assertContainsDiagnostic(t, diagnostics, "root schema is not registered")
+}
+
+func validatorToolRootSchema(t *testing.T) *schema.Field {
+	t.Helper()
+
+	type config struct {
+		Steps []struct {
+			Action struct {
+				Tool string            `yaml:"tool"`
+				Args map[string]string `yaml:"args"`
+			} `yaml:"action"`
+		} `yaml:"steps"`
+	}
+
+	root, err := schema.Parse(config{})
+	if err != nil {
+		t.Fatalf("schema.Parse() returned error: %v", err)
+	}
+	return root
+}
+
+func validatorToolSchemas(t *testing.T) map[string]*schema.Field {
+	t.Helper()
+
+	type addAccount struct {
+		Name string `yaml:"Name"`
+		Code string `yaml:"Code"`
+	}
+
+	field, err := schema.Parse(addAccount{})
+	if err != nil {
+		t.Fatalf("schema.Parse() returned error: %v", err)
+	}
+	return map[string]*schema.Field{"gui.AddAccount": field}
 }
 
 func assertContainsDiagnostic(t *testing.T, diagnostics []Diagnostic, message string) {

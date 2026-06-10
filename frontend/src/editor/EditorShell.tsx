@@ -171,7 +171,7 @@ export function EditorShell() {
 		cursorPositionRef.current?.dispose();
 		selectionKeyRef.current?.dispose();
 		completionProviderRef.current = monaco.languages.registerCompletionItemProvider("yaml", {
-			triggerCharacters: [" ", "\n", ":", "-"],
+			triggerCharacters: [" ", "\n", ":", "-", "."],
 			provideCompletionItems: async (
 				model: Monaco.editor.ITextModel,
 				position: Monaco.Position,
@@ -859,22 +859,20 @@ function toCompletionItem(
 ): Monaco.languages.CompletionItem {
 	const line = model.getLineContent(position.lineNumber);
 	const isValue = line.lastIndexOf(":", position.column - 1) >= 0;
-	const word = model.getWordUntilPosition(position);
-	const range = {
-		startLineNumber: position.lineNumber,
-		endLineNumber: position.lineNumber,
-		startColumn: word.startColumn,
-		endColumn: word.endColumn,
-	};
+	const range = completionRange(model, position, line, candidate);
 
 	if (isValue) {
 		return {
 			label: candidate.name,
 			kind: monaco.languages.CompletionItemKind.Value,
-			insertText: candidate.name,
+			insertText: valueInsertText(line, position.column, candidate.name),
+			insertTextRules: valueInsertTextRules(monaco, line, position.column, candidate.name),
 			range,
 			detail: completionDetail(candidate),
 			documentation: candidate.description,
+			command: shouldTriggerSuggestAfterCompletion(line, position.column, candidate.name)
+				? { id: "editor.action.triggerSuggest", title: "Trigger Suggest" }
+				: undefined,
 		};
 	}
 
@@ -893,6 +891,137 @@ function toCompletionItem(
 	};
 }
 
+function completionRange(
+	model: Monaco.editor.ITextModel,
+	position: Monaco.Position,
+	line: string,
+	candidate: CompletionCandidate,
+): Monaco.IRange {
+	const toolContext = toolValueContext(line, position.column);
+	if (toolContext !== null) {
+		const startColumn = candidate.name.endsWith(".")
+			? toolContext.tokenStartColumn
+			: toolContext.segmentStartColumn;
+		return {
+			startLineNumber: position.lineNumber,
+			endLineNumber: position.lineNumber,
+			startColumn,
+			endColumn: position.column,
+		};
+	}
+
+	const word = model.getWordUntilPosition(position);
+	return {
+		startLineNumber: position.lineNumber,
+		endLineNumber: position.lineNumber,
+		startColumn: word.startColumn,
+		endColumn: word.endColumn,
+	};
+}
+
+function valueInsertText(line: string, column: number, candidateName: string): string {
+	const toolContext = toolValueContext(line, column);
+	if (toolContext === null) {
+		return candidateName;
+	}
+
+	if (candidateName.endsWith(".")) {
+		if (toolContext.hasClosingQuoteAfterCursor) {
+			return toolContext.hasOpeningQuote ? candidateName : `"${candidateName}`;
+		}
+		if (toolContext.hasOpeningQuote) {
+			return `${candidateName}$0"`;
+		}
+		return `"${candidateName}$0"`;
+	}
+
+	if (toolContext.packageName === "") {
+		if (toolContext.hasOpeningQuote && toolContext.hasClosingQuoteAfterCursor) {
+			return candidateName;
+		}
+		if (toolContext.hasOpeningQuote) {
+			return `${candidateName}"`;
+		}
+		if (toolContext.hasClosingQuoteAfterCursor) {
+			return `"${candidateName}`;
+		}
+		return `"${candidateName}"`;
+	}
+	if (toolContext.hasOpeningQuote) {
+		return toolContext.hasClosingQuoteAfterCursor ? candidateName : `${candidateName}"`;
+	}
+	return toolContext.hasClosingQuoteAfterCursor
+		? `"${toolContext.packageName}.${candidateName}`
+		: `"${toolContext.packageName}.${candidateName}"`;
+}
+
+function valueInsertTextRules(
+	monaco: typeof Monaco,
+	line: string,
+	column: number,
+	candidateName: string,
+): Monaco.languages.CompletionItemInsertTextRule | undefined {
+	const toolContext = toolValueContext(line, column);
+	if (toolContext === null || !candidateName.endsWith(".") || toolContext.hasClosingQuoteAfterCursor) {
+		return undefined;
+	}
+	return monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet;
+}
+
+function shouldTriggerSuggestAfterCompletion(line: string, column: number, candidateName: string): boolean {
+	return candidateName.endsWith(".") && toolValueContext(line, column) !== null;
+}
+
+function isToolValueLine(line: string, column: number): boolean {
+	return toolValueContext(line, column) !== null;
+}
+
+type ToolValueContext = {
+	hasOpeningQuote: boolean;
+	hasClosingQuoteAfterCursor: boolean;
+	packageName: string;
+	tokenStartColumn: number;
+	segmentStartColumn: number;
+};
+
+function toolValueContext(line: string, column: number): ToolValueContext | null {
+	const prefix = line.slice(0, column - 1);
+	const colonIndex = prefix.lastIndexOf(":");
+	if (colonIndex < 0) {
+		return null;
+	}
+
+	const key = prefix.slice(0, colonIndex).trim().replace(/^- /, "").trim();
+	if (key !== "tool") {
+		return null;
+	}
+
+	const rawValue = prefix.slice(colonIndex + 1);
+	const leadingWhitespace = leadingWhitespaceLength(rawValue);
+	const value = rawValue.slice(leadingWhitespace);
+	const hasOpeningQuote = value.startsWith("\"");
+	const hasClosingQuoteAfterCursor = line.slice(column - 1).trimStart().startsWith("\"");
+	const token = hasOpeningQuote ? value.slice(1) : value;
+	const valueStartColumn = colonIndex + 2 + leadingWhitespace;
+	const tokenStartColumn = valueStartColumn + (hasOpeningQuote ? 1 : 0);
+	const dotIndex = token.lastIndexOf(".");
+	const packageName = dotIndex > 0 ? token.slice(0, dotIndex) : "";
+	const segmentStartColumn = dotIndex >= 0 ? tokenStartColumn + dotIndex + 1 : tokenStartColumn;
+
+	return {
+		hasOpeningQuote,
+		hasClosingQuoteAfterCursor,
+		packageName,
+		tokenStartColumn,
+		segmentStartColumn,
+	};
+}
+
+function leadingWhitespaceLength(value: string): number {
+	const match = value.match(/^\s*/);
+	return match?.[0].length ?? 0;
+}
+
 function completionDetail(candidate: CompletionCandidate): string {
 	const parts = [candidate.type, candidate.required ? "required" : "optional"];
 	if (candidate.enum && candidate.enum.length > 0) {
@@ -909,7 +1038,9 @@ function shouldTriggerSuggest(
 	insertedText: string,
 ): boolean {
 	if (!/^[A-Za-z0-9_-]+$/.test(insertedText)) {
-		return false;
+		if (insertedText !== "." && !insertedText.endsWith(".")) {
+			return false;
+		}
 	}
 
 	const model = editor.getModel();
@@ -926,6 +1057,9 @@ function shouldTriggerSuggest(
 
 	if (!linePrefix.includes(":")) {
 		return true;
+	}
+	if (isToolValueLine(linePrefix, linePrefix.length + 1)) {
+		return /:\s*"?[A-Za-z0-9_.-]*$/.test(linePrefix);
 	}
 	return /:\s*[A-Za-z0-9_-]*$/.test(linePrefix);
 }

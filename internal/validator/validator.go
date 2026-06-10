@@ -11,6 +11,11 @@ import (
 
 // Validate parses YAML source and compares it with the provided root schema.
 func Validate(source string, root *schema.Field) []Diagnostic {
+	return ValidateWithTools(source, root, nil)
+}
+
+// ValidateWithTools parses YAML source and compares it with root plus tool-specific args schemas.
+func ValidateWithTools(source string, root *schema.Field, toolSchemas map[string]*schema.Field) []Diagnostic {
 	document, yamlDiagnostics := yamlx.Parse(source)
 	diagnostics := fromYAMLDiagnostics(yamlDiagnostics)
 	if document == nil {
@@ -20,10 +25,10 @@ func Validate(source string, root *schema.Field) []Diagnostic {
 		return append(diagnostics, newDiagnostic("root schema is not registered", 1, 1))
 	}
 
-	return append(diagnostics, validateNode(document.Content(), root)...)
+	return append(diagnostics, validateNode(document.Content(), root, toolSchemas)...)
 }
 
-func validateNode(node *yaml.Node, field *schema.Field) []Diagnostic {
+func validateNode(node *yaml.Node, field *schema.Field, toolSchemas map[string]*schema.Field) []Diagnostic {
 	if field == nil || node == nil {
 		return nil
 	}
@@ -44,23 +49,32 @@ func validateNode(node *yaml.Node, field *schema.Field) []Diagnostic {
 
 	switch field.Type {
 	case schema.FieldTypeStruct:
-		return validateStruct(node, field)
+		return validateStruct(node, field, toolSchemas)
 	case schema.FieldTypeSlice, schema.FieldTypeArray:
-		return validateSequence(node, field.Item)
+		return validateSequence(node, field.Item, toolSchemas)
 	case schema.FieldTypeMap:
-		return validateMap(node, field.MapValue)
+		return validateMap(node, field.MapValue, toolSchemas)
 	default:
 		return nil
 	}
 }
 
-func validateStruct(node *yaml.Node, field *schema.Field) []Diagnostic {
+func validateStruct(node *yaml.Node, field *schema.Field, toolSchemas map[string]*schema.Field) []Diagnostic {
 	var diagnostics []Diagnostic
 	seen := make(map[string]bool, len(node.Content)/2)
+	toolName, toolNode := mappingStringValue(node, "tool")
+	toolSchema := toolSchemas[toolName]
 	for i := 0; i+1 < len(node.Content); i += 2 {
 		keyNode := node.Content[i]
 		valueNode := node.Content[i+1]
 		seen[keyNode.Value] = true
+
+		if keyNode.Value == "tool" && toolName != "" && len(toolSchemas) > 0 && toolSchema == nil {
+			diagnostics = append(diagnostics, nodeDiagnostic(
+				valueNode,
+				fmt.Sprintf("tool %q is not registered", toolName),
+			))
+		}
 
 		child, ok := field.FindChild(keyNode.Value)
 		if !ok {
@@ -71,7 +85,16 @@ func validateStruct(node *yaml.Node, field *schema.Field) []Diagnostic {
 			continue
 		}
 
-		diagnostics = append(diagnostics, validateNode(valueNode, child)...)
+		if keyNode.Value == "args" && toolSchema != nil {
+			diagnostics = append(diagnostics, validateNode(valueNode, toolSchema, toolSchemas)...)
+			continue
+		}
+
+		diagnostics = append(diagnostics, validateNode(valueNode, child, toolSchemas)...)
+	}
+
+	if toolNode != nil && toolName == "" && len(toolSchemas) > 0 {
+		diagnostics = append(diagnostics, nodeDiagnostic(toolNode, "tool must not be empty"))
 	}
 
 	for _, child := range field.Children {
@@ -86,22 +109,36 @@ func validateStruct(node *yaml.Node, field *schema.Field) []Diagnostic {
 	return diagnostics
 }
 
-func validateSequence(node *yaml.Node, item *schema.Field) []Diagnostic {
+func validateSequence(node *yaml.Node, item *schema.Field, toolSchemas map[string]*schema.Field) []Diagnostic {
 	var diagnostics []Diagnostic
 	for _, child := range node.Content {
-		diagnostics = append(diagnostics, validateNode(child, item)...)
+		diagnostics = append(diagnostics, validateNode(child, item, toolSchemas)...)
 	}
 
 	return diagnostics
 }
 
-func validateMap(node *yaml.Node, value *schema.Field) []Diagnostic {
+func validateMap(node *yaml.Node, value *schema.Field, toolSchemas map[string]*schema.Field) []Diagnostic {
 	var diagnostics []Diagnostic
 	for i := 1; i < len(node.Content); i += 2 {
-		diagnostics = append(diagnostics, validateNode(node.Content[i], value)...)
+		diagnostics = append(diagnostics, validateNode(node.Content[i], value, toolSchemas)...)
 	}
 
 	return diagnostics
+}
+
+func mappingStringValue(node *yaml.Node, key string) (string, *yaml.Node) {
+	if node == nil || node.Kind != yaml.MappingNode {
+		return "", nil
+	}
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		if node.Content[i].Value != key {
+			continue
+		}
+		valueNode := node.Content[i+1]
+		return strings.TrimSpace(valueNode.Value), valueNode
+	}
+	return "", nil
 }
 
 func matchesKind(node *yaml.Node, field *schema.Field) bool {

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"testing/fstest"
 )
 
 func TestParseDirResolvesStructsAcrossFiles(t *testing.T) {
@@ -241,6 +242,38 @@ type Server struct {
 
 	if _, err := ParseDir(dir, "Config"); err == nil {
 		t.Fatal("ParseDir() error = nil, want error")
+	}
+}
+
+func TestParseToolSchemasFS(t *testing.T) {
+	t.Parallel()
+
+	sourceFS := fstest.MapFS{
+		"tools/gui.go": {
+			Data: []byte(`package gui
+
+type AddAccount struct {
+	Name string ` + "`yaml:\"Name\"`" + `
+	Code string ` + "`yaml:\"Code\"`" + `
+}
+`),
+		},
+	}
+
+	toolSchemas, err := ParseToolSchemasFS(sourceFS, "tools")
+	if err != nil {
+		t.Fatalf("ParseToolSchemasFS() returned error: %v", err)
+	}
+
+	addAccount := toolSchemas["gui.AddAccount"]
+	if addAccount == nil {
+		t.Fatalf("toolSchemas = %#v, want gui.AddAccount", toolSchemas)
+	}
+	if _, ok := addAccount.FindChild("Name"); !ok {
+		t.Fatal("gui.AddAccount missing Name field")
+	}
+	if _, ok := addAccount.FindChild("Code"); !ok {
+		t.Fatal("gui.AddAccount missing Code field")
 	}
 }
 

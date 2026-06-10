@@ -118,6 +118,57 @@ func TestProvideNestedSliceItemCandidates(t *testing.T) {
 	}
 }
 
+func TestProvideToolValueCandidates(t *testing.T) {
+	t.Parallel()
+
+	candidates := ProvideWithTools(
+		"steps:\n  - action:\n      tool: \n",
+		3,
+		13,
+		completionSchema(t),
+		completionToolSchemas(t),
+	)
+	names := candidateNames(candidates)
+	want := []string{"gui."}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("candidate names = %#v, want %#v", names, want)
+	}
+}
+
+func TestProvideToolStructCandidatesAfterPackage(t *testing.T) {
+	t.Parallel()
+
+	candidates := ProvideWithTools(
+		"steps:\n  - action:\n      tool: \"gui.\n",
+		3,
+		18,
+		completionSchema(t),
+		completionToolSchemas(t),
+	)
+	names := candidateNames(candidates)
+	want := []string{"AddAccount"}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("candidate names = %#v, want %#v", names, want)
+	}
+}
+
+func TestProvideToolArgsCandidates(t *testing.T) {
+	t.Parallel()
+
+	candidates := ProvideWithTools(
+		"steps:\n  - action:\n      tool: \"gui.AddAccount\"\n      args:\n        \n",
+		5,
+		9,
+		completionSchema(t),
+		completionToolSchemas(t),
+	)
+	names := candidateNames(candidates)
+	want := []string{"Name", "Code"}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("candidate names = %#v, want %#v", names, want)
+	}
+}
+
 func TestProvideEnumValueCandidates(t *testing.T) {
 	t.Parallel()
 
@@ -136,6 +187,21 @@ func TestProvideNilSchema(t *testing.T) {
 	if len(candidates) != 0 {
 		t.Fatalf("candidates = %#v, want none", candidates)
 	}
+}
+
+func completionToolSchemas(t *testing.T) map[string]*schema.Field {
+	t.Helper()
+
+	type addAccount struct {
+		Name string `yaml:"Name"`
+		Code string `yaml:"Code"`
+	}
+
+	field, err := schema.Parse(addAccount{})
+	if err != nil {
+		t.Fatalf("schema.Parse() returned error: %v", err)
+	}
+	return map[string]*schema.Field{"gui.AddAccount": field}
 }
 
 func candidateNames(candidates []Candidate) []string {

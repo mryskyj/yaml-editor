@@ -79,6 +79,44 @@ func ParseFS(sourceFS fs.FS, dir string, rootType string) (*Field, error) {
 	return parseSourceStruct(rootType, root, structs, map[string]bool{})
 }
 
+// ParseToolSchemasFS converts all YAML-tagged structs in a filesystem directory into tool schemas.
+func ParseToolSchemasFS(sourceFS fs.FS, dir string) (map[string]*Field, error) {
+	if sourceFS == nil {
+		return nil, fmt.Errorf("schema source parse failed: source filesystem is required")
+	}
+	if strings.TrimSpace(dir) == "" {
+		return nil, fmt.Errorf("schema source parse failed: schema dir is required")
+	}
+
+	packageName, structs, err := parseSourcePackageStructsFS(sourceFS, dir)
+	if err != nil {
+		return nil, err
+	}
+
+	toolSchemas := make(map[string]*Field)
+	for typeName, structType := range structs {
+		if !sourceStructHasYAMLField(structType) {
+			continue
+		}
+		field, err := parseSourceStruct(typeName, structType, structs, map[string]bool{})
+		if err != nil {
+			return nil, err
+		}
+		toolSchemas[packageName+"."+typeName] = field
+	}
+	return toolSchemas, nil
+}
+
+// ParseToolSchemasDir converts all YAML-tagged structs in a directory into tool schemas.
+func ParseToolSchemasDir(dir string) (map[string]*Field, error) {
+	if strings.TrimSpace(dir) == "" {
+		return nil, fmt.Errorf("schema source parse failed: schema dir is required")
+	}
+
+	cleanDir := filepath.Clean(dir)
+	return ParseToolSchemasFS(os.DirFS(filepath.Dir(cleanDir)), filepath.Base(cleanDir))
+}
+
 func parseSourceStructs(dir string) (map[string]*ast.StructType, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -131,13 +169,19 @@ func parseSourceStructs(dir string) (map[string]*ast.StructType, error) {
 }
 
 func parseSourceStructsFS(sourceFS fs.FS, dir string) (map[string]*ast.StructType, error) {
+	_, structs, err := parseSourcePackageStructsFS(sourceFS, dir)
+	return structs, err
+}
+
+func parseSourcePackageStructsFS(sourceFS fs.FS, dir string) (string, map[string]*ast.StructType, error) {
 	entries, err := fs.ReadDir(sourceFS, dir)
 	if err != nil {
-		return nil, fmt.Errorf("schema source parse failed: %w", err)
+		return "", nil, fmt.Errorf("schema source parse failed: %w", err)
 	}
 
 	fset := token.NewFileSet()
 	structs := make(map[string]*ast.StructType)
+	packageName := ""
 
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -151,20 +195,29 @@ func parseSourceStructsFS(sourceFS fs.FS, dir string) (map[string]*ast.StructTyp
 		filePath := path.Join(dir, name)
 		source, err := fs.ReadFile(sourceFS, filePath)
 		if err != nil {
-			return nil, fmt.Errorf("schema source parse failed: read %s: %w", filePath, err)
+			return "", nil, fmt.Errorf("schema source parse failed: read %s: %w", filePath, err)
 		}
-		if err := collectSourceStructs(fset, filePath, source, structs); err != nil {
-			return nil, err
+		filePackage, err := collectSourceStructs(fset, filePath, source, structs)
+		if err != nil {
+			return "", nil, err
+		}
+		if packageName == "" {
+			packageName = filePackage
+		} else if filePackage != packageName {
+			return "", nil, fmt.Errorf("schema source parse failed: mixed package names %q and %q", packageName, filePackage)
 		}
 	}
 
-	return structs, nil
+	if packageName == "" {
+		return "", nil, fmt.Errorf("schema source parse failed: package could not be detected")
+	}
+	return packageName, structs, nil
 }
 
-func collectSourceStructs(fset *token.FileSet, filePath string, source []byte, structs map[string]*ast.StructType) error {
+func collectSourceStructs(fset *token.FileSet, filePath string, source []byte, structs map[string]*ast.StructType) (string, error) {
 	file, err := parser.ParseFile(fset, filePath, source, parser.ParseComments)
 	if err != nil {
-		return fmt.Errorf("schema source parse failed: parse %s: %w", filePath, err)
+		return "", fmt.Errorf("schema source parse failed: parse %s: %w", filePath, err)
 	}
 
 	for _, decl := range file.Decls {
@@ -179,18 +232,18 @@ func collectSourceStructs(fset *token.FileSet, filePath string, source []byte, s
 				continue
 			}
 			if typeSpec.TypeParams != nil && typeSpec.TypeParams.NumFields() > 0 {
-				return fmt.Errorf("schema source parse failed: generic type %q is not supported", typeSpec.Name.Name)
+				return "", fmt.Errorf("schema source parse failed: generic type %q is not supported", typeSpec.Name.Name)
 			}
 
 			structType, ok := typeSpec.Type.(*ast.StructType)
 			if !ok {
-				return fmt.Errorf("schema source parse failed: type alias or non-struct type %q is not supported", typeSpec.Name.Name)
+				return "", fmt.Errorf("schema source parse failed: type alias or non-struct type %q is not supported", typeSpec.Name.Name)
 			}
 			structs[typeSpec.Name.Name] = structType
 		}
 	}
 
-	return nil
+	return file.Name.Name, nil
 }
 
 func detectSourceRootType(structs map[string]*ast.StructType) (string, error) {

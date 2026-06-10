@@ -1,6 +1,7 @@
 package app
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -82,6 +83,88 @@ func TestAppCompleteYAMLScenarioStepListItem(t *testing.T) {
 	}
 	if hasCandidate(candidates, "id") {
 		t.Fatalf("CompleteYAML() candidates = %#v, want id excluded as existing key", candidates)
+	}
+}
+
+func TestAppCompleteYAMLToolValue(t *testing.T) {
+	t.Parallel()
+
+	app := testApp(t)
+	candidates, err := app.CompleteYAML("scenario:\n  steps:\n    - action:\n        tool: \n", 4, 15)
+	if err != nil {
+		t.Fatalf("CompleteYAML() returned error: %v", err)
+	}
+	if !hasCandidate(candidates, "sampleschema.") {
+		t.Fatalf("CompleteYAML() candidates = %#v, want sampleschema.", candidates)
+	}
+
+	candidates, err = app.CompleteYAML("scenario:\n  steps:\n    - action:\n        tool: \"sam\n", 4, 19)
+	if err != nil {
+		t.Fatalf("CompleteYAML() returned error: %v", err)
+	}
+	if !hasCandidate(candidates, "sampleschema.") {
+		t.Fatalf("CompleteYAML() candidates = %#v, want sampleschema.", candidates)
+	}
+
+	candidates, err = app.CompleteYAML("scenario:\n  steps:\n    - action:\n        tool: \"sampleschema.\n", 4, 29)
+	if err != nil {
+		t.Fatalf("CompleteYAML() returned error: %v", err)
+	}
+	if !hasCandidate(candidates, "Config") {
+		t.Fatalf("CompleteYAML() candidates = %#v, want Config", candidates)
+	}
+}
+
+func TestAppCompleteYAMLToolArgs(t *testing.T) {
+	t.Parallel()
+
+	app := testApp(t)
+	candidates, err := app.CompleteYAML("scenario:\n  steps:\n    - action:\n        tool: \"sampleschema.Config\"\n        args:\n          \n", 6, 11)
+	if err != nil {
+		t.Fatalf("CompleteYAML() returned error: %v", err)
+	}
+	if !hasCandidate(candidates, "server") {
+		t.Fatalf("CompleteYAML() candidates = %#v, want server", candidates)
+	}
+	if !hasCandidate(candidates, "app") {
+		t.Fatalf("CompleteYAML() candidates = %#v, want app", candidates)
+	}
+}
+
+func TestAppValidateYAMLToolArgs(t *testing.T) {
+	t.Parallel()
+
+	app := testApp(t)
+	diagnostics, err := app.ValidateYAML(`
+schema_version: v1
+common:
+  schema_version: v1
+  dates: {}
+  schedules: {}
+scenario:
+  id: 1
+  name: test
+  description: test
+  docs: []
+  steps:
+    - id: "101-02"
+      name: test
+      day_ref: day1
+      schedule_ref: run8
+      action:
+        tool: "sampleschema.Config"
+        args:
+          server:
+            host: 127.0.0.1
+            port: 8080
+          app:
+            mode: dev
+`)
+	if err != nil {
+		t.Fatalf("ValidateYAML() returned error: %v", err)
+	}
+	if len(diagnostics) != 0 {
+		t.Fatalf("ValidateYAML() diagnostics = %#v, want none", diagnostics)
 	}
 }
 
@@ -213,6 +296,61 @@ func TestNewWithSchemaSourceUsesExplicitAlternateRoot(t *testing.T) {
 	}
 }
 
+func TestNewWithSchemaSourceUsesExternalToolSchemas(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeAppSourceFile(t, dir, "config.go", `package externaltool
+
+type Config struct {
+	Steps []Step `+"`yaml:\"steps\"`"+`
+}
+
+type Step struct {
+	Action Action `+"`yaml:\"action\"`"+`
+}
+
+type Action struct {
+	Tool string            `+"`yaml:\"tool\"`"+`
+	Args map[string]string `+"`yaml:\"args\"`"+`
+}
+
+type Database struct {
+	Driver string `+"`yaml:\"driver\"`"+`
+	Host   string `+"`yaml:\"host\"`"+`
+}
+`)
+
+	app, err := NewWithSchemaSource(dir, "Config")
+	if err != nil {
+		t.Fatalf("NewWithSchemaSource() returned error: %v", err)
+	}
+
+	toolCandidates, err := app.CompleteYAML("steps:\n  - action:\n      tool: \n", 3, 13)
+	if err != nil {
+		t.Fatalf("CompleteYAML() returned error: %v", err)
+	}
+	if !hasCandidate(toolCandidates, "externaltool.") {
+		t.Fatalf("CompleteYAML() candidates = %#v, want externaltool.", toolCandidates)
+	}
+
+	toolCandidates, err = app.CompleteYAML("steps:\n  - action:\n      tool: \"externaltool.\n", 3, 27)
+	if err != nil {
+		t.Fatalf("CompleteYAML() returned error: %v", err)
+	}
+	if !hasCandidate(toolCandidates, "Database") {
+		t.Fatalf("CompleteYAML() candidates = %#v, want Database", toolCandidates)
+	}
+
+	argsCandidates, err := app.CompleteYAML("steps:\n  - action:\n      tool: \"externaltool.Database\"\n      args:\n        \n", 5, 9)
+	if err != nil {
+		t.Fatalf("CompleteYAML() returned error: %v", err)
+	}
+	if !hasCandidate(argsCandidates, "driver") {
+		t.Fatalf("CompleteYAML() candidates = %#v, want driver", argsCandidates)
+	}
+}
+
 func TestAppFileOperations(t *testing.T) {
 	t.Parallel()
 
@@ -253,6 +391,14 @@ func testApp(t *testing.T) *App {
 		filex.NewService(filex.NewRecentStore(recentPath, 10)),
 		schema.NewRegistry(),
 	)
+}
+
+func writeAppSourceFile(t *testing.T, dir string, name string, content string) {
+	t.Helper()
+
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+		t.Fatalf("write source file: %v", err)
+	}
 }
 
 func hasCandidate(candidates []completion.Candidate, name string) bool {

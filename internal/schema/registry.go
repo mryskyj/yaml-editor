@@ -1,15 +1,21 @@
 package schema
 
-import "fmt"
+import (
+	"fmt"
+	"io/fs"
+)
 
 // Registry holds the parsed root schema used by the application.
 type Registry struct {
-	root *Field
+	root        *Field
+	toolSchemas map[string]*Field
 }
 
 // NewRegistry creates an empty schema registry.
 func NewRegistry() *Registry {
-	return &Registry{}
+	return &Registry{
+		toolSchemas: make(map[string]*Field),
+	}
 }
 
 // Register parses and stores the root schema from a Go struct value or type.
@@ -55,6 +61,44 @@ func (r *Registry) SetRoot(root *Field) error {
 	return nil
 }
 
+// RegisterToolSchemasFS parses tool schemas from Go source files in a filesystem directory.
+func (r *Registry) RegisterToolSchemasFS(sourceFS fs.FS, dir string) error {
+	if r == nil {
+		return fmt.Errorf("schema registry is nil")
+	}
+
+	toolSchemas, err := ParseToolSchemasFS(sourceFS, dir)
+	if err != nil {
+		return err
+	}
+	if r.toolSchemas == nil {
+		r.toolSchemas = make(map[string]*Field, len(toolSchemas))
+	}
+	for name, field := range toolSchemas {
+		r.toolSchemas[name] = field
+	}
+	return nil
+}
+
+// RegisterToolSchemasFromDir parses tool schemas from Go source files in a directory.
+func (r *Registry) RegisterToolSchemasFromDir(dir string) error {
+	if r == nil {
+		return fmt.Errorf("schema registry is nil")
+	}
+
+	toolSchemas, err := ParseToolSchemasDir(dir)
+	if err != nil {
+		return err
+	}
+	if r.toolSchemas == nil {
+		r.toolSchemas = make(map[string]*Field, len(toolSchemas))
+	}
+	for name, field := range toolSchemas {
+		r.toolSchemas[name] = field
+	}
+	return nil
+}
+
 // Root returns the registered root schema.
 func (r *Registry) Root() (*Field, error) {
 	if r == nil {
@@ -65,4 +109,17 @@ func (r *Registry) Root() (*Field, error) {
 	}
 
 	return r.root, nil
+}
+
+// ToolSchemas returns registered tool argument schemas keyed by <package>.<struct>.
+func (r *Registry) ToolSchemas() map[string]*Field {
+	if r == nil || len(r.toolSchemas) == 0 {
+		return nil
+	}
+
+	toolSchemas := make(map[string]*Field, len(r.toolSchemas))
+	for name, field := range r.toolSchemas {
+		toolSchemas[name] = field
+	}
+	return toolSchemas
 }

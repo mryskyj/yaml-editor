@@ -1,6 +1,7 @@
 package completion
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/mryskyj/yaml-editor/internal/schema"
@@ -8,6 +9,11 @@ import (
 
 // Provide returns schema-aware YAML completion candidates at a cursor position.
 func Provide(source string, line int, column int, root *schema.Field) []Candidate {
+	return ProvideWithTools(source, line, column, root, nil)
+}
+
+// ProvideWithTools returns YAML completion candidates including tool-specific args schemas.
+func ProvideWithTools(source string, line int, column int, root *schema.Field, toolSchemas map[string]*schema.Field) []Candidate {
 	if root == nil || line <= 0 {
 		return nil
 	}
@@ -16,12 +22,15 @@ func Provide(source string, line int, column int, root *schema.Field) []Candidat
 	cursorIndex := min(line-1, len(lines)-1)
 	cursorIndent := indentation(lineAt(lines, cursorIndex))
 	path := inferPath(lines, cursorIndex, cursorIndent)
-	current := fieldAtPath(root, path)
+	current := fieldAtPathWithTools(root, path, lines, toolSchemas)
 	if current == nil {
 		return nil
 	}
 
 	if valueField := valueFieldAtCursor(lineAt(lines, cursorIndex), column, current); valueField != nil {
+		if valueField.Name == "tool" {
+			return toolCandidates(lineAt(lines, cursorIndex), column, toolSchemas)
+		}
 		return enumCandidates(valueField)
 	}
 
@@ -42,6 +51,92 @@ func Provide(source string, line int, column int, root *schema.Field) []Candidat
 	}
 
 	return candidates
+}
+
+func toolCandidates(line string, column int, toolSchemas map[string]*schema.Field) []Candidate {
+	if len(toolSchemas) == 0 {
+		return nil
+	}
+
+	token := toolTokenAtCursor(line, column)
+	if packageName, _, hasPackage := strings.Cut(token, "."); hasPackage {
+		return toolStructCandidates(packageName, toolSchemas)
+	}
+
+	return toolPackageCandidates(toolSchemas)
+}
+
+func toolPackageCandidates(toolSchemas map[string]*schema.Field) []Candidate {
+	packages := make(map[string]bool)
+	for name := range toolSchemas {
+		packageName, _, ok := strings.Cut(name, ".")
+		if !ok || packageName == "" {
+			continue
+		}
+		packages[packageName] = true
+	}
+
+	names := make([]string, 0, len(packages))
+	for name := range packages {
+		names = append(names, name+".")
+	}
+	sort.Strings(names)
+
+	return stringCandidates(names)
+}
+
+func toolStructCandidates(packageName string, toolSchemas map[string]*schema.Field) []Candidate {
+	if packageName == "" {
+		return nil
+	}
+
+	structs := make([]string, 0)
+	prefix := packageName + "."
+	for name := range toolSchemas {
+		if !strings.HasPrefix(name, prefix) {
+			continue
+		}
+		structName := strings.TrimPrefix(name, prefix)
+		if structName != "" && !strings.Contains(structName, ".") {
+			structs = append(structs, structName)
+		}
+	}
+	sort.Strings(structs)
+
+	return stringCandidates(structs)
+}
+
+func stringCandidates(names []string) []Candidate {
+	candidates := make([]Candidate, 0, len(names))
+	for _, name := range names {
+		candidates = append(candidates, Candidate{
+			Name: name,
+			Type: schema.FieldTypeString,
+		})
+	}
+	return candidates
+}
+
+func toolTokenAtCursor(line string, column int) string {
+	if column <= 0 {
+		return ""
+	}
+
+	end := min(column-1, len(line))
+	prefix := line[:end]
+	colonIndex := strings.LastIndex(prefix, ":")
+	if colonIndex < 0 {
+		return ""
+	}
+
+	value := prefix[colonIndex+1:]
+	value = strings.TrimLeft(value, " \t")
+	value = strings.TrimLeft(value, `"'`)
+	fields := strings.Fields(value)
+	if len(fields) == 0 {
+		return value
+	}
+	return strings.Trim(fields[len(fields)-1], `"'`)
 }
 
 func valueFieldAtCursor(line string, column int, current *schema.Field) *schema.Field {
@@ -128,6 +223,26 @@ type pathEntry struct {
 }
 
 func fieldAtPath(root *schema.Field, path []string) *schema.Field {
+	return fieldAtPathFrom(root, path)
+}
+
+func fieldAtPathWithTools(
+	root *schema.Field,
+	path []string,
+	lines []string,
+	toolSchemas map[string]*schema.Field,
+) *schema.Field {
+	argsIndex := lastPathIndex(path, "args")
+	if argsIndex >= 0 {
+		toolName := toolValueAtPath(lines, path[:argsIndex])
+		if toolSchema := toolSchemas[toolName]; toolSchema != nil {
+			return fieldAtPathFrom(toolSchema, path[argsIndex+1:])
+		}
+	}
+	return fieldAtPathFrom(root, path)
+}
+
+func fieldAtPathFrom(root *schema.Field, path []string) *schema.Field {
 	current := root
 	for _, name := range path {
 		current = collectionValueField(current)
@@ -142,6 +257,40 @@ func fieldAtPath(root *schema.Field, path []string) *schema.Field {
 		current = child
 	}
 	return collectionValueField(current)
+}
+
+func lastPathIndex(path []string, name string) int {
+	for i := len(path) - 1; i >= 0; i-- {
+		if path[i] == name {
+			return i
+		}
+	}
+	return -1
+}
+
+func toolValueAtPath(lines []string, parentPath []string) string {
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		key, ok := yamlKey(line)
+		if !ok || key != "tool" {
+			continue
+		}
+		indent := keyIndentation(line)
+		linePath := append(inferPath(lines, i, indent), key)
+		if samePath(linePath, appendPath(parentPath, "tool")) {
+			return yamlValue(line)
+		}
+	}
+	return ""
+}
+
+func appendPath(path []string, value string) []string {
+	next := make([]string, 0, len(path)+1)
+	next = append(next, path...)
+	next = append(next, value)
+	return next
 }
 
 func collectionValueField(field *schema.Field) *schema.Field {
@@ -196,6 +345,19 @@ func yamlKey(line string) (string, bool) {
 	}
 
 	return strings.TrimSpace(trimmed[:index]), true
+}
+
+func yamlValue(line string) string {
+	trimmed := strings.TrimSpace(line)
+	trimmed = strings.TrimPrefix(trimmed, "- ")
+	index := strings.Index(trimmed, ":")
+	if index < 0 {
+		return ""
+	}
+
+	value := strings.TrimSpace(trimmed[index+1:])
+	value = strings.Trim(value, `"'`)
+	return value
 }
 
 func yamlContainerKey(line string) (string, bool) {

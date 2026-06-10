@@ -6,7 +6,7 @@ import (
 	"github.com/mryskyj/yaml-editor/internal/schema"
 )
 
-//go:embed rootschema/*.go
+//go:embed rootschema/*.go sampleschema/*.go
 var sampleSchemaSource embed.FS
 
 func registerSampleSchema(registry *schema.Registry) error {
@@ -17,6 +17,8 @@ func registerSampleSchema(registry *schema.Registry) error {
 	if err != nil {
 		return err
 	}
-	registry.SetRoot(root)
-	return nil
+	if err := registry.SetRoot(root); err != nil {
+		return err
+	}
+	return registry.RegisterToolSchemasFS(sampleSchemaSource, "sampleschema")
 }

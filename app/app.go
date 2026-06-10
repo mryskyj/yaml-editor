@@ -31,6 +31,9 @@ func NewWithSchemaSource(schemaDir string, schemaType string) (*App, error) {
 		if err := registry.RegisterFromDir(schemaDir, schemaType); err != nil {
 			return nil, err
 		}
+		if err := registry.RegisterToolSchemasFromDir(schemaDir); err != nil {
+			return nil, err
+		}
 		return &App{
 			files:    filex.NewService(filex.NewRecentStore(recentPath, 10)),
 			registry: registry,
@@ -90,7 +93,7 @@ func (a *App) ValidateYAML(content string) ([]validator.Diagnostic, error) {
 	if err != nil {
 		return nil, err
 	}
-	return validator.Validate(content, root), nil
+	return validator.ValidateWithTools(content, root, a.toolSchemas()), nil
 }
 
 // CompleteYAML returns completion candidates for a cursor position.
@@ -99,7 +102,7 @@ func (a *App) CompleteYAML(content string, line int, column int) ([]completion.C
 	if err != nil {
 		return nil, err
 	}
-	return completion.Provide(content, line, column, root), nil
+	return completion.ProvideWithTools(content, line, column, root, a.toolSchemas()), nil
 }
 
 // Schema returns the registered root schema.
@@ -112,6 +115,13 @@ func (a *App) rootSchema() (*schema.Field, error) {
 		return nil, fmt.Errorf("schema registry is not configured")
 	}
 	return a.registry.Root()
+}
+
+func (a *App) toolSchemas() map[string]*schema.Field {
+	if a == nil || a.registry == nil {
+		return nil
+	}
+	return a.registry.ToolSchemas()
 }
 
 func userConfigDir() string {
