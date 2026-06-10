@@ -390,7 +390,7 @@
 ### `scenario.steps` のstepテンプレート自動入力を実装する
 
 - `steps:` 改行時に最初のstepリスト要素を自動入力するようにした
-- 自動入力するstepテンプレートに `id`, `name`, `day_ref`, `schedule_ref`, `action.tool`, `action.args` を含めた
+- 自動入力するstepテンプレートに `id`, `name`, `day_ref`, `schedule_ref`, `action.tool` を含めた
 - 既に `steps` 配下にリスト要素がある場合は重複挿入しないようにした
 
 ### `tool` の選択値に応じた `args` 補完・検証を実装する
@@ -398,5 +398,7 @@
 - 参照用tool schemaを `<パッケージ名>.<構造体名>` でRegistryへ登録できるようにした
 - 引数指定なしの場合は `app/sampleschema`、`--schema-dir` 指定時は指定フォルダ内のGo structをtool schemaとして登録するようにした
 - `tool` の値位置で登録済みtool schema名を `パッケージ名.` と `構造体名` に分けて補完候補として返し、フロントエンドでダブルクォート付きの値として挿入するようにした
+- `tool` の構造体名補完を確定したとき、同じ階層に `args` がなければ `args:` と選択された構造体のYAML対象フィールド名を自動入力するようにした
+- `tool` の構造体名を補完し直したとき、既存の `args` ブロックを修正後のtoolに応じた内容へ置き換えるようにした
 - `args` 配下では同じ階層の `tool` 値に対応するstructのYAML対象フィールドを補完候補として返すようにした
 - Validatorで未登録tool値とtool固有 `args` の未定義キー、型不一致、必須不足を診断できるようにした

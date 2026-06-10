@@ -181,11 +181,11 @@ export function EditorShell() {
 					position.lineNumber,
 					position.column,
 				);
+				const suggestions = await Promise.all(candidates
+					.filter((candidate) => candidate.name !== "")
+					.map((candidate) => toCompletionItem(monaco, model, position, candidate)));
 				return {
-					suggestions: candidates
-						.filter((candidate) => candidate.name !== "")
-						.map((candidate) => toCompletionItem(monaco, model, position, candidate))
-						.concat(dateBlockCompletionItem(monaco, model, position)),
+					suggestions: suggestions.concat(dateBlockCompletionItem(monaco, model, position)),
 				};
 			},
 		});
@@ -851,12 +851,12 @@ function dateBlockCompletionItem(
 	}];
 }
 
-function toCompletionItem(
+async function toCompletionItem(
 	monaco: typeof Monaco,
 	model: Monaco.editor.ITextModel,
 	position: Monaco.Position,
 	candidate: CompletionCandidate,
-): Monaco.languages.CompletionItem {
+): Promise<Monaco.languages.CompletionItem> {
 	const line = model.getLineContent(position.lineNumber);
 	const isValue = line.lastIndexOf(":", position.column - 1) >= 0;
 	const range = completionRange(model, position, line, candidate);
@@ -868,6 +868,7 @@ function toCompletionItem(
 			insertText: valueInsertText(line, position.column, candidate.name),
 			insertTextRules: valueInsertTextRules(monaco, line, position.column, candidate.name),
 			range,
+			additionalTextEdits: await toolArgsAdditionalTextEdits(model, position, line, candidate.name),
 			detail: completionDetail(candidate),
 			documentation: candidate.description,
 			command: shouldTriggerSuggestAfterCompletion(line, position.column, candidate.name)
@@ -970,6 +971,170 @@ function valueInsertTextRules(
 
 function shouldTriggerSuggestAfterCompletion(line: string, column: number, candidateName: string): boolean {
 	return candidateName.endsWith(".") && toolValueContext(line, column) !== null;
+}
+
+async function toolArgsAdditionalTextEdits(
+	model: Monaco.editor.ITextModel,
+	position: Monaco.Position,
+	line: string,
+	candidateName: string,
+): Promise<Monaco.editor.ISingleEditOperation[] | undefined> {
+	const toolContext = toolValueContext(line, position.column);
+	if (toolContext === null || candidateName.endsWith(".") || toolContext.packageName === "") {
+		return undefined;
+	}
+
+	const toolIndent = leadingWhitespaceLength(line);
+	const argsIndent = " ".repeat(toolIndent);
+	const argsChildIndent = `${argsIndent}  `;
+	const completedToolName = `${toolContext.packageName}.${candidateName}`;
+	const argsFieldCandidates = await argsCandidatesForTool(model, position.lineNumber, toolIndent, completedToolName);
+	const argsLines = argsFieldCandidates.length > 0
+		? argsFieldCandidates.map((candidate) => argsFieldLine(candidate, argsChildIndent))
+		: [argsChildIndent];
+	const argsBlockText = `${argsIndent}args:\n${argsLines.join("\n")}`;
+
+	const existingArgsRange = findSiblingKeyBlockRange(model, position.lineNumber, toolIndent, "args");
+	if (existingArgsRange !== null) {
+		return [{
+			range: existingArgsRange.range,
+			text: `${argsBlockText}${existingArgsRange.needsTrailingNewline ? "\n" : ""}`,
+		}];
+	}
+
+	return [{
+		range: {
+			startLineNumber: position.lineNumber,
+			startColumn: model.getLineMaxColumn(position.lineNumber),
+			endLineNumber: position.lineNumber,
+			endColumn: model.getLineMaxColumn(position.lineNumber),
+		},
+		text: `\n${argsBlockText}`,
+	}];
+}
+
+async function argsCandidatesForTool(
+	model: Monaco.editor.ITextModel,
+	toolLineNumber: number,
+	toolIndent: number,
+	toolName: string,
+): Promise<CompletionCandidate[]> {
+	const lines = model.getValue().split(/\r?\n/);
+	const argsIndent = " ".repeat(toolIndent);
+	const argsChildIndent = `${argsIndent}  `;
+	lines[toolLineNumber - 1] = `${argsIndent}tool: "${toolName}"`;
+	lines.splice(toolLineNumber, 0, `${argsIndent}args:`, argsChildIndent);
+
+	const candidates = await completeYAML(
+		lines.join("\n"),
+		toolLineNumber + 2,
+		argsChildIndent.length + 1,
+	);
+	return candidates.filter((candidate) => candidate.name !== "");
+}
+
+function argsFieldLine(candidate: CompletionCandidate, indent: string): string {
+	if (candidate.type === "struct" || candidate.type === "map") {
+		return `${indent}${candidate.name}:`;
+	}
+	const defaultValue = candidate.default ?? candidate.enum?.[0] ?? "";
+	return `${indent}${candidate.name}: ${defaultValue}`;
+}
+
+type SiblingKeyBlockRange = {
+	range: Monaco.IRange;
+	needsTrailingNewline: boolean;
+};
+
+function findSiblingKeyBlockRange(
+	model: Monaco.editor.ITextModel,
+	lineNumber: number,
+	indent: number,
+	key: string,
+): SiblingKeyBlockRange | null {
+	const forwardLine = findSiblingKeyLine(model, lineNumber + 1, model.getLineCount(), 1, indent, key);
+	if (forwardLine !== null) {
+		return siblingKeyBlockRange(model, forwardLine, indent);
+	}
+
+	const backwardLine = findSiblingKeyLine(model, lineNumber - 1, 1, -1, indent, key);
+	if (backwardLine !== null) {
+		return siblingKeyBlockRange(model, backwardLine, indent);
+	}
+
+	return null;
+}
+
+function findSiblingKeyLine(
+	model: Monaco.editor.ITextModel,
+	startLine: number,
+	endLine: number,
+	step: 1 | -1,
+	indent: number,
+	key: string,
+): number | null {
+	for (
+		let current = startLine;
+		step > 0 ? current <= endLine : current >= endLine;
+		current += step
+	) {
+		const line = model.getLineContent(current);
+		if (line.trim() === "") {
+			continue;
+		}
+		const lineIndent = leadingWhitespaceLength(line);
+		if (lineIndent < indent) {
+			break;
+		}
+		if (lineIndent === indent && yamlLineKey(line) === key) {
+			return current;
+		}
+	}
+	return null;
+}
+
+function siblingKeyBlockRange(
+	model: Monaco.editor.ITextModel,
+	lineNumber: number,
+	indent: number,
+): SiblingKeyBlockRange {
+	for (let current = lineNumber + 1; current <= model.getLineCount(); current++) {
+		const line = model.getLineContent(current);
+		if (line.trim() === "") {
+			continue;
+		}
+		const lineIndent = leadingWhitespaceLength(line);
+		if (lineIndent <= indent) {
+			return {
+				range: {
+					startLineNumber: lineNumber,
+					startColumn: 1,
+					endLineNumber: current,
+					endColumn: 1,
+				},
+				needsTrailingNewline: true,
+			};
+		}
+	}
+
+	return {
+		range: {
+			startLineNumber: lineNumber,
+			startColumn: 1,
+			endLineNumber: model.getLineCount(),
+			endColumn: model.getLineMaxColumn(model.getLineCount()),
+		},
+		needsTrailingNewline: false,
+	};
+}
+
+function yamlLineKey(line: string): string | null {
+	const trimmed = line.trim().replace(/^- /, "").trim();
+	const colonIndex = trimmed.indexOf(":");
+	if (colonIndex <= 0) {
+		return null;
+	}
+	return trimmed.slice(0, colonIndex).trim();
 }
 
 function isToolValueLine(line: string, column: number): boolean {

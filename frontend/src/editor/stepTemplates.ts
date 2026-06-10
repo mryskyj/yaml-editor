@@ -26,7 +26,6 @@ export function stepTemplateInsertion(lines: string[], lineNumber: number): Step
 
 	const childIndent = `${entryIndent}  `;
 	const actionChildIndent = `${childIndent}  `;
-	const argsChildIndent = `${actionChildIndent}  `;
 	const text = [
 		`${entryIndent}- id: ""`,
 		`${childIndent}name: ""`,
@@ -34,8 +33,6 @@ export function stepTemplateInsertion(lines: string[], lineNumber: number): Step
 		`${childIndent}schedule_ref: `,
 		`${childIndent}action:`,
 		`${actionChildIndent}tool: ""`,
-		`${actionChildIndent}args:`,
-		`${argsChildIndent}`,
 	].join("\n");
 
 	return {
