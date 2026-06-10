@@ -23,7 +23,7 @@ import { FileToolbar } from "../components/FileToolbar";
 import { ScheduleMenu } from "../components/ScheduleMenu";
 import { SchemaPane, type SchemaField } from "../components/SchemaPane";
 import { dateNextBlockCompletion, dateTemplateInsertion } from "./dateTemplates";
-import { listNextItemCompletion } from "./listTemplates";
+import { listNextItemCompletion, listNextItemCompletions } from "./listTemplates";
 import {
 	defaultScheduleTemplate,
 	sanitizeScheduleTemplate,
@@ -872,8 +872,8 @@ function listItemCompletionItem(
 	model: Monaco.editor.ITextModel,
 	position: Monaco.Position,
 ): Monaco.languages.CompletionItem[] {
-	const insertion = listNextItemCompletion(model.getValue().split(/\r?\n/), position.lineNumber);
-	if (!insertion) {
+	const insertions = listNextItemCompletions(model.getValue().split(/\r?\n/), position.lineNumber);
+	if (insertions.length === 0) {
 		return [];
 	}
 
@@ -883,16 +883,16 @@ function listItemCompletionItem(
 		startColumn: 1,
 		endColumn: model.getLineMaxColumn(position.lineNumber),
 	};
-	return [{
-		label: "next list item",
+	return insertions.map((insertion, index) => ({
+		label: insertion.label,
 		kind: monaco.languages.CompletionItemKind.Snippet,
 		insertText: `${insertion.text}$0`,
 		insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
 		range,
 		detail: "list item | optional",
-		documentation: "Insert the next list item using the previous item shape.",
-		sortText: "0001",
-	}];
+		documentation: "Insert a list item using the selected list shape.",
+		sortText: `000${index + 1}`,
+	}));
 }
 
 async function toCompletionItem(
@@ -1030,9 +1030,7 @@ async function toolArgsAdditionalTextEdits(
 	const argsChildIndent = `${argsIndent}  `;
 	const completedToolName = `${toolContext.packageName}.${candidateName}`;
 	const argsFieldCandidates = await argsCandidatesForTool(model, position.lineNumber, toolIndent, completedToolName);
-	const argsLines = argsFieldCandidates.length > 0
-		? argsFieldCandidates.map((candidate) => argsFieldLine(candidate, argsChildIndent))
-		: [argsChildIndent];
+	const argsLines = argsBlockLines(argsFieldCandidates, argsChildIndent);
 	const argsBlockText = `${argsIndent}args:\n${argsLines.join("\n")}`;
 
 	const existingArgsRange = findSiblingKeyBlockRange(model, position.lineNumber, toolIndent, "args");
@@ -1071,7 +1069,27 @@ async function argsCandidatesForTool(
 		toolLineNumber + 2,
 		argsChildIndent.length + 1,
 	);
-	return candidates.filter((candidate) => candidate.name !== "");
+	return candidates.filter((candidate) => candidate.name !== "" || candidate.root === true);
+}
+
+function argsBlockLines(candidates: CompletionCandidate[], indent: string): string[] {
+	if (candidates.length === 0) {
+		return [indent];
+	}
+	if (candidates.length === 1 && candidates[0].root === true) {
+		return rootArgsLines(candidates[0], indent);
+	}
+	return candidates.map((candidate) => argsFieldLine(candidate, indent));
+}
+
+function rootArgsLines(candidate: CompletionCandidate, indent: string): string[] {
+	if ((candidate.type === "slice" || candidate.type === "array") && candidate.item) {
+		return listItemTemplate(candidate.item, indent).split("\n");
+	}
+	if (candidate.type === "struct" && candidate.children) {
+		return candidate.children.map((child) => fieldTemplate(child, indent));
+	}
+	return [indent];
 }
 
 function argsFieldLine(candidate: CompletionCandidate, indent: string): string {

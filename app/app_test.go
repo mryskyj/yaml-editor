@@ -186,6 +186,40 @@ func TestAppCompleteYAMLToolArgsIncludesSliceItemSchema(t *testing.T) {
 	}
 }
 
+func TestAppCompleteYAMLToolArgsRootSliceSchema(t *testing.T) {
+	t.Parallel()
+
+	app := testApp(t)
+	toolCandidates, err := app.CompleteYAML("scenario:\n  steps:\n    - action:\n        tool: \"gui.\n", 4, 20)
+	if err != nil {
+		t.Fatalf("CompleteYAML() returned error: %v", err)
+	}
+	if !hasCandidate(toolCandidates, "AddAccounts") {
+		t.Fatalf("CompleteYAML() candidates = %#v, want AddAccounts", toolCandidates)
+	}
+
+	candidates, err := app.CompleteYAML("scenario:\n  steps:\n    - action:\n        tool: \"gui.AddAccounts\"\n        args:\n          \n", 6, 11)
+	if err != nil {
+		t.Fatalf("CompleteYAML() returned error: %v", err)
+	}
+	if len(candidates) != 1 {
+		t.Fatalf("CompleteYAML() candidates = %#v, want one root slice candidate", candidates)
+	}
+	candidate := candidates[0]
+	if !candidate.Root {
+		t.Fatalf("Root = false, want true")
+	}
+	if candidate.Type != schema.FieldTypeSlice {
+		t.Fatalf("Type = %q, want slice", candidate.Type)
+	}
+	if candidate.Item == nil || candidate.Item.Type != schema.FieldTypeStruct {
+		t.Fatalf("Item = %#v, want struct item", candidate.Item)
+	}
+	if _, ok := findCandidate(candidate.Item.Children, "Name"); !ok {
+		t.Fatalf("Item.Children = %#v, want Name", candidate.Item.Children)
+	}
+}
+
 func TestAppValidateYAMLToolArgs(t *testing.T) {
 	t.Parallel()
 
@@ -214,6 +248,41 @@ scenario:
             port: 8080
           app:
             mode: dev
+`)
+	if err != nil {
+		t.Fatalf("ValidateYAML() returned error: %v", err)
+	}
+	if len(diagnostics) != 0 {
+		t.Fatalf("ValidateYAML() diagnostics = %#v, want none", diagnostics)
+	}
+}
+
+func TestAppValidateYAMLToolArgsRootSlice(t *testing.T) {
+	t.Parallel()
+
+	app := testApp(t)
+	diagnostics, err := app.ValidateYAML(`
+schema_version: v1
+common:
+  schema_version: v1
+  dates: {}
+  schedules: {}
+scenario:
+  id: 1
+  name: test
+  description: test
+  docs: []
+  steps:
+    - id: "101-02"
+      name: test
+      day_ref: day1
+      schedule_ref: run8
+      action:
+        tool: "gui.AddAccounts"
+        args:
+          - Name: aiu
+            Code: "11111"
+            Kind: standard
 `)
 	if err != nil {
 		t.Fatalf("ValidateYAML() returned error: %v", err)

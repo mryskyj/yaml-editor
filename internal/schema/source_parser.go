@@ -15,8 +15,9 @@ import (
 )
 
 type sourceTypes struct {
-	structs map[string]*ast.StructType
-	scalars map[string]FieldType
+	structs     map[string]*ast.StructType
+	scalars     map[string]FieldType
+	collections map[string]ast.Expr
 }
 
 // ParseDir converts Go struct definitions in a directory into a YAML editor schema field.
@@ -122,6 +123,16 @@ func ParseToolSchemasFS(sourceFS fs.FS, dir string) (map[string]*Field, error) {
 			field, err := parseSourceStruct(typeName, structType, sourceTypes, map[string]bool{})
 			if err != nil {
 				return err
+			}
+			toolSchemas[namespace+"."+typeName] = field
+		}
+		for typeName, expr := range sourceTypes.collections {
+			field, err := parseSourceExpr(typeName, expr, sourceTypes, map[string]bool{})
+			if err != nil {
+				return err
+			}
+			if !fieldHasYAMLContent(field) {
+				continue
 			}
 			toolSchemas[namespace+"."+typeName] = field
 		}
@@ -248,8 +259,9 @@ func parseSourcePackageStructsFS(sourceFS fs.FS, dir string) (string, *sourceTyp
 
 func newSourceTypes() *sourceTypes {
 	return &sourceTypes{
-		structs: make(map[string]*ast.StructType),
-		scalars: make(map[string]FieldType),
+		structs:     make(map[string]*ast.StructType),
+		scalars:     make(map[string]FieldType),
+		collections: make(map[string]ast.Expr),
 	}
 }
 
@@ -292,6 +304,10 @@ func collectSourceTypeDecls(file *ast.File, filePath string, sourceTypes *source
 			}
 			if scalarType, ok := sourceScalarExprType(typeSpec.Type); ok {
 				sourceTypes.scalars[typeSpec.Name.Name] = scalarType
+				continue
+			}
+			if sourceCollectionExpr(typeSpec.Type) {
+				sourceTypes.collections[typeSpec.Name.Name] = typeSpec.Type
 			}
 		}
 	}
@@ -337,6 +353,31 @@ func sourceStructHasYAMLField(structType *ast.StructType) bool {
 		}
 	}
 	return false
+}
+
+func fieldHasYAMLContent(field *Field) bool {
+	if field == nil {
+		return false
+	}
+	if len(field.Children) > 0 {
+		return true
+	}
+	if field.Item != nil {
+		return fieldHasYAMLContent(field.Item)
+	}
+	if field.MapValue != nil {
+		return fieldHasYAMLContent(field.MapValue)
+	}
+	return field.Type.IsScalar()
+}
+
+func sourceCollectionExpr(expr ast.Expr) bool {
+	switch expr.(type) {
+	case *ast.ArrayType, *ast.MapType:
+		return true
+	default:
+		return false
+	}
 }
 
 func collectSourceReferences(expr ast.Expr, sourceTypes *sourceTypes, referenced map[string]bool) {
@@ -396,10 +437,25 @@ func parseSourceExpr(name string, expr ast.Expr, sourceTypes *sourceTypes, stack
 			return &Field{Name: name, Type: fieldType}, nil
 		}
 		structType, ok := sourceTypes.structs[t.Name]
+		if ok {
+			field, err := parseSourceStruct(t.Name, structType, sourceTypes, stack)
+			if err != nil {
+				return nil, err
+			}
+			field.Name = name
+			return field, nil
+		}
+
+		collectionExpr, ok := sourceTypes.collections[t.Name]
 		if !ok {
 			return nil, fmt.Errorf("unsupported type %q", t.Name)
 		}
-		field, err := parseSourceStruct(t.Name, structType, sourceTypes, stack)
+		if stack[t.Name] {
+			return nil, fmt.Errorf("schema source parse failed: circular type reference at %q", t.Name)
+		}
+		stack[t.Name] = true
+		defer delete(stack, t.Name)
+		field, err := parseSourceExpr(t.Name, collectionExpr, sourceTypes, stack)
 		if err != nil {
 			return nil, err
 		}

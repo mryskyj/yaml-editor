@@ -1,49 +1,71 @@
 export type ListTemplateInsertion = {
+	label: string;
 	text: string;
 	cursorLineOffset: number;
 	cursorColumn: number;
 };
 
 export function listNextItemCompletion(lines: string[], lineNumber: number): ListTemplateInsertion | null {
+	return listNextItemCompletions(lines, lineNumber)[0] ?? null;
+}
+
+export function listNextItemCompletions(lines: string[], lineNumber: number): ListTemplateInsertion[] {
 	const currentIndex = lineNumber - 1;
 	const previousIndex = currentIndex - 1;
 	if (previousIndex < 0 || currentIndex >= lines.length) {
-		return null;
+		return [];
 	}
 
 	const currentLine = lines[currentIndex] ?? "";
 	if (currentLine.trim() !== "") {
-		return null;
+		return [];
 	}
 
-	const itemStartIndex = findListItemStart(lines, previousIndex);
-	if (itemStartIndex < 0 || hasNextListItem(lines, currentIndex, indentationLength(lines[itemStartIndex] ?? ""))) {
-		return null;
-	}
+	const completions: ListTemplateInsertion[] = [];
+	for (const itemStartIndex of findListItemStarts(lines, previousIndex)) {
+		const listIndent = indentationLength(lines[itemStartIndex] ?? "");
+		if (hasNextListItem(lines, currentIndex, listIndent)) {
+			continue;
+		}
 
-	const text = listItemTemplate(lines, itemStartIndex, previousIndex);
-	if (text === "") {
-		return null;
-	}
+		const text = listItemTemplate(lines, itemStartIndex, previousIndex);
+		if (text === "") {
+			continue;
+		}
 
-	return {
-		text,
-		cursorLineOffset: 0,
-		cursorColumn: firstEditableColumn(text),
-	};
+		completions.push({
+			label: `Add ${listParentName(lines, itemStartIndex)} item`,
+			text,
+			cursorLineOffset: 0,
+			cursorColumn: firstEditableColumn(text),
+		});
+	}
+	return completions;
 }
 
-function findListItemStart(lines: string[], previousIndex: number): number {
+function findListItemStarts(lines: string[], previousIndex: number): number[] {
+	const starts: number[] = [];
+	let maxIndent = Number.POSITIVE_INFINITY;
 	for (let index = previousIndex; index >= 0; index--) {
 		const line = lines[index] ?? "";
 		if (line.trim() === "") {
-			return -1;
+			break;
+		}
+
+		const indent = indentationLength(line);
+		if (indent >= maxIndent) {
+			continue;
 		}
 		if (isListItemLine(line)) {
-			return index;
+			starts.push(index);
+			maxIndent = indent;
 		}
 	}
-	return -1;
+	return starts;
+}
+
+function findListItemStart(lines: string[], previousIndex: number): number {
+	return findListItemStarts(lines, previousIndex)[0] ?? -1;
 }
 
 function hasNextListItem(lines: string[], currentIndex: number, listIndent: number): boolean {
@@ -111,6 +133,34 @@ function emptyValue(value: string, hasNestedValue: boolean): string {
 function firstEditableColumn(text: string): number {
 	const firstLine = text.split("\n", 1)[0] ?? "";
 	return firstLine.length + 1;
+}
+
+function listParentName(lines: string[], itemStartIndex: number): string {
+	const listIndent = indentationLength(lines[itemStartIndex] ?? "");
+	for (let index = itemStartIndex - 1; index >= 0; index--) {
+		const line = lines[index] ?? "";
+		if (line.trim() === "") {
+			continue;
+		}
+
+		const indent = indentationLength(line);
+		if (indent >= listIndent) {
+			continue;
+		}
+
+		const key = yamlKey(line.trim());
+		return key || "list";
+	}
+	return "list";
+}
+
+function yamlKey(trimmedLine: string): string {
+	const value = trimmedLine.startsWith("- ") ? trimmedLine.slice(2).trimStart() : trimmedLine;
+	const colonIndex = value.indexOf(":");
+	if (colonIndex <= 0) {
+		return "";
+	}
+	return value.slice(0, colonIndex).trim();
 }
 
 function isListItemLine(line: string): boolean {

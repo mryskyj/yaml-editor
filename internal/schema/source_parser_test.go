@@ -303,6 +303,8 @@ Metadata map[accountMetadataKey]string ` + "`yaml:\"Metadata\"`" + `
 Contacts []AddAccountContact ` + "`yaml:\"Contacts\"`" + `
 }
 
+type AddAccounts []AddAccount
+
 type accountKind string
 type accountMetadataKey string
 
@@ -355,6 +357,16 @@ Count int ` + "`yaml:\"count\"`" + `
 	}
 	if contacts, ok := addAccount.FindChild("Contacts"); !ok || contacts.Type != FieldTypeSlice || contacts.Item == nil || contacts.Item.Type != FieldTypeStruct {
 		t.Fatalf("gui.AddAccount Contacts = %#v, want struct slice", contacts)
+	}
+	addAccounts := toolSchemas["gui.AddAccounts"]
+	if addAccounts == nil {
+		t.Fatalf("toolSchemas = %#v, want gui.AddAccounts", toolSchemas)
+	}
+	if addAccounts.Type != FieldTypeSlice || addAccounts.Item == nil || addAccounts.Item.Type != FieldTypeStruct {
+		t.Fatalf("gui.AddAccounts = %#v, want AddAccount slice", addAccounts)
+	}
+	if _, ok := addAccounts.Item.FindChild("Name"); !ok {
+		t.Fatal("gui.AddAccounts item missing Name field")
 	}
 
 	runTask := toolSchemas["cloud.ecs.RunTask"]

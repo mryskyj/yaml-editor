@@ -209,13 +209,16 @@ root struct配下に `tool` と `args` の組み合わせがある場合、`tool
 参照用スキーマはサブディレクトリも再帰的に読み込み、ディレクトリ階層を `.` 区切りの名前空間として `tool` 識別子に反映する。
 例として `app/sampleschema/cloud/ecs` 配下の `RunTask` は `"cloud.ecs.RunTask"` として扱う。
 組み込み `app/sampleschema` には、名前付きスカラー型、const、メソッド、YAML対象外struct、slice、mapを混在させ、実運用に近いGoソースでも適切に解析できることを確認するサンプルを含める。
+`type AddAccounts []AddAccount` のような名前付きsliceも参照用スキーマとして扱い、toolに選択できる。
 
 `args` の値は、同じ階層の `tool` で選択された構造体に応じて動的に解釈する。
 `args` 配下では、選択された構造体のYAML対象フィールドをキーとして補完・検証する。
 キー名は既存のstruct解析方針に合わせて `yaml` タグ名を使い、`yaml` タグがないフィールドは対象外とする。
+tool自体がslice / arrayの場合、`args` 直下をYAMLリストとして補完・検証する。
 slice / array のフィールドを補完する場合はYAMLリストとして展開する。
 要素がstructの場合は、最初のリスト要素配下にそのstructのYAML対象フィールドを展開する。
-リストの最後の要素で改行した場合は、直前のリスト要素と同じ形の次要素を補完候補として提示する。
+リストの最後の要素で改行した場合は、カーソル位置から見て継続可能なリスト階層をすべて補完候補として提示する。
+候補は内側のリストを優先し、候補名には `Add Contacts item`、`Add args item` のように対象リスト名を含める。
 ユーザーが候補を確定した場合のみ次要素を挿入する。
 
 例:
@@ -237,6 +240,17 @@ args:
   Contacts:
     - Name:
       Email:
+```
+
+slice tool の例:
+
+```yaml
+action:
+  tool: "gui.AddAccounts"
+  args:
+    - Name:
+      Code:
+      Kind: standard
 ```
 
 root schema用の外部Goソース読み込みの対象外:

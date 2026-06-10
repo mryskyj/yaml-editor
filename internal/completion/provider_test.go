@@ -146,7 +146,7 @@ func TestProvideToolStructCandidatesAfterPackage(t *testing.T) {
 		completionToolSchemas(t),
 	)
 	names := candidateNames(candidates)
-	want := []string{"AddAccount"}
+	want := []string{"AddAccount", "AddAccounts"}
 	if !reflect.DeepEqual(names, want) {
 		t.Fatalf("candidate names = %#v, want %#v", names, want)
 	}
@@ -236,6 +236,36 @@ func TestProvideCandidatesIncludeNestedCollectionSchema(t *testing.T) {
 	}
 }
 
+func TestProvideToolArgsRootSliceCandidate(t *testing.T) {
+	t.Parallel()
+
+	candidates := ProvideWithTools(
+		"steps:\n  - action:\n      tool: \"gui.AddAccounts\"\n      args:\n        \n",
+		5,
+		9,
+		completionSchema(t),
+		completionToolSchemas(t),
+	)
+	if len(candidates) != 1 {
+		t.Fatalf("candidates = %#v, want one root candidate", candidates)
+	}
+	candidate := candidates[0]
+	if !candidate.Root {
+		t.Fatalf("Root = false, want true")
+	}
+	if candidate.Type != schema.FieldTypeSlice {
+		t.Fatalf("Type = %q, want slice", candidate.Type)
+	}
+	if candidate.Item == nil || candidate.Item.Type != schema.FieldTypeStruct {
+		t.Fatalf("Item = %#v, want struct item", candidate.Item)
+	}
+	names := candidateNames(candidate.Item.Children)
+	want := []string{"Name", "Code", "Tags", "Metadata", "Contacts"}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("Item.Children = %#v, want %#v", names, want)
+	}
+}
+
 func TestProvideEnumValueCandidates(t *testing.T) {
 	t.Parallel()
 
@@ -275,7 +305,8 @@ func completionToolSchemas(t *testing.T) map[string]*schema.Field {
 	if err != nil {
 		t.Fatalf("schema.Parse() returned error: %v", err)
 	}
-	return map[string]*schema.Field{"gui.AddAccount": field}
+	addAccounts := &schema.Field{Name: "AddAccounts", Type: schema.FieldTypeSlice, Item: field}
+	return map[string]*schema.Field{"gui.AddAccount": field, "gui.AddAccounts": addAccounts}
 }
 
 func candidateNames(candidates []Candidate) []string {

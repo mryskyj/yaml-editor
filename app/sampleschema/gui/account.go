@@ -16,6 +16,8 @@ type AddAccount struct {
 	runtime  accountRuntimeOnly
 }
 
+type AddAccounts []AddAccount
+
 type AddAccountContact struct {
 	Name  string `yaml:"Name" required:"true" desc:"contact name"`
 	Email string `yaml:"Email" desc:"contact email address"`

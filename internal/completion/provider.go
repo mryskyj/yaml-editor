@@ -22,6 +22,9 @@ func ProvideWithTools(source string, line int, column int, root *schema.Field, t
 	cursorIndex := min(line-1, len(lines)-1)
 	cursorIndent := indentation(lineAt(lines, cursorIndex))
 	path := inferPath(lines, cursorIndex, cursorIndent)
+	if candidate := argsRootCollectionCandidate(path, lines, toolSchemas); candidate != nil {
+		return []Candidate{*candidate}
+	}
 	current := fieldAtPathWithTools(root, path, lines, toolSchemas)
 	if current == nil {
 		return nil
@@ -198,6 +201,32 @@ func candidateFromField(field *schema.Field) Candidate {
 	}
 
 	return candidate
+}
+
+func argsRootCollectionCandidate(
+	path []string,
+	lines []string,
+	toolSchemas map[string]*schema.Field,
+) *Candidate {
+	if len(toolSchemas) == 0 {
+		return nil
+	}
+	argsIndex := lastPathIndex(path, "args")
+	if argsIndex < 0 || len(path[argsIndex+1:]) != 0 {
+		return nil
+	}
+	toolName := toolValueAtPath(lines, path[:argsIndex])
+	toolSchema := toolSchemas[toolName]
+	if toolSchema == nil {
+		return nil
+	}
+	if toolSchema.Type != schema.FieldTypeSlice && toolSchema.Type != schema.FieldTypeArray {
+		return nil
+	}
+	candidate := candidateFromField(toolSchema)
+	candidate.Name = ""
+	candidate.Root = true
+	return &candidate
 }
 
 func inferPath(lines []string, cursorIndex int, cursorIndent int) []string {

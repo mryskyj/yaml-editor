@@ -249,6 +249,7 @@ Schema registryはroot schemaとは別に、参照用サンプルスキーマの
 参照用サンプルスキーマはサブディレクトリも再帰的に読み込み、ルート直下のstructはパッケージ名、サブディレクトリ配下のstructはルートからの相対ディレクトリを `.` 区切りにした名前空間を使う。
 例として `app/sampleschema/gui/AddAccount` 相当のstructは `gui.AddAccount`、`app/sampleschema/cloud/ecs/RunTask` 相当のstructは `cloud.ecs.RunTask` として登録する。
 組み込み `app/sampleschema` には、名前付きスカラー型、const、メソッド、YAML対象外struct、slice、mapを含むサンプルを配置し、業務コードに近いGoソースが混在しても参照用tool schemaだけを抽出できることを確認する。
+`type AddAccounts []AddAccount` のような名前付きslice / array / mapも参照用tool schemaとして登録できる。
 
 補完時の責務:
 
@@ -257,8 +258,9 @@ Schema registryはroot schemaとは別に、参照用サンプルスキーマの
 - 既存の `args` が同じ階層にある状態で `tool` の構造体名候補を確定し直した場合は、既存の `args` ブロックを新しいtool structに対応する内容へ置き換える
 - `args` 配下では、同一階層の `tool` 値に対応するstructのYAML対象フィールドをキー候補に出す
 - `args` 配下のネスト、slice、map、enumは通常のschema fieldと同じ規則で扱う
+- tool schema自体がslice / arrayの場合は、`args` 直下をリスト要素として補完する
 - `args` 自動挿入では候補に子スキーマ情報を含め、slice / array はYAMLリストとして出力し、struct要素の場合は最初の `-` 配下へ子フィールドを展開する
-- リスト要素ブロックの末尾で改行した場合、直前のリスト要素のキー構造を空値にした次要素を補完候補として提示する
+- リスト要素ブロックの末尾で改行した場合、カーソル位置から親方向に継続可能なリスト階層を収集し、内側のリストを優先して複数の次要素候補を提示する
 
 検証時の責務:
 

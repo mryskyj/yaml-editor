@@ -10,6 +10,7 @@ type Candidate struct {
 	Required    bool
 	Default     string
 	Enum        []string
+	Root        bool
 	Children    []Candidate
 	Item        *Candidate
 	MapValue    *Candidate

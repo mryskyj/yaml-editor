@@ -8,6 +8,7 @@ export type CompletionCandidate = {
 	required?: boolean;
 	default?: string;
 	enum?: string[];
+	root?: boolean;
 	children?: CompletionCandidate[];
 	item?: CompletionCandidate;
 	mapValue?: CompletionCandidate;
@@ -132,6 +133,7 @@ function normalizeCandidate(value: unknown): CompletionCandidate {
 		required: Boolean(record.required ?? record.Required ?? false),
 		default: stringValue(record.default ?? record.Default),
 		enum: arrayValue(record.enum ?? record.Enum).map(String),
+		root: Boolean(record.root ?? record.Root ?? false),
 		children: arrayValue(record.children ?? record.Children).map(normalizeCandidate),
 		item: optionalCandidate(record.item ?? record.Item),
 		mapValue: optionalCandidate(record.mapValue ?? record.MapValue),
