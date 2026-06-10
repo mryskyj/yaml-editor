@@ -8,6 +8,9 @@ export type CompletionCandidate = {
 	required?: boolean;
 	default?: string;
 	enum?: string[];
+	children?: CompletionCandidate[];
+	item?: CompletionCandidate;
+	mapValue?: CompletionCandidate;
 };
 
 type RuntimeModule = {
@@ -129,7 +132,17 @@ function normalizeCandidate(value: unknown): CompletionCandidate {
 		required: Boolean(record.required ?? record.Required ?? false),
 		default: stringValue(record.default ?? record.Default),
 		enum: arrayValue(record.enum ?? record.Enum).map(String),
+		children: arrayValue(record.children ?? record.Children).map(normalizeCandidate),
+		item: optionalCandidate(record.item ?? record.Item),
+		mapValue: optionalCandidate(record.mapValue ?? record.MapValue),
 	};
+}
+
+function optionalCandidate(value: unknown): CompletionCandidate | undefined {
+	if (!value || typeof value !== "object") {
+		return undefined;
+	}
+	return normalizeCandidate(value);
 }
 
 function normalizeSchema(value: unknown): SchemaField {

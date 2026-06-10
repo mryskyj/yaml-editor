@@ -196,9 +196,43 @@ func TestProvideToolArgsCandidates(t *testing.T) {
 		completionToolSchemas(t),
 	)
 	names := candidateNames(candidates)
-	want := []string{"Name", "Code"}
+	want := []string{"Name", "Code", "Tags", "Metadata", "Contacts"}
 	if !reflect.DeepEqual(names, want) {
 		t.Fatalf("candidate names = %#v, want %#v", names, want)
+	}
+}
+
+func TestProvideCandidatesIncludeNestedCollectionSchema(t *testing.T) {
+	t.Parallel()
+
+	candidates := ProvideWithTools(
+		"steps:\n  - action:\n      tool: \"gui.AddAccount\"\n      args:\n        \n",
+		5,
+		9,
+		completionSchema(t),
+		completionToolSchemas(t),
+	)
+
+	var contacts Candidate
+	for _, candidate := range candidates {
+		if candidate.Name == "Contacts" {
+			contacts = candidate
+			break
+		}
+	}
+	if contacts.Name == "" {
+		t.Fatalf("candidates = %#v, want Contacts", candidates)
+	}
+	if contacts.Type != schema.FieldTypeSlice {
+		t.Fatalf("Contacts.Type = %q, want slice", contacts.Type)
+	}
+	if contacts.Item == nil || contacts.Item.Type != schema.FieldTypeStruct {
+		t.Fatalf("Contacts.Item = %#v, want struct item", contacts.Item)
+	}
+	names := candidateNames(contacts.Item.Children)
+	want := []string{"Name", "Email"}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("Contacts.Item.Children = %#v, want %#v", names, want)
 	}
 }
 
@@ -225,9 +259,16 @@ func TestProvideNilSchema(t *testing.T) {
 func completionToolSchemas(t *testing.T) map[string]*schema.Field {
 	t.Helper()
 
+	type addAccountContact struct {
+		Name  string `yaml:"Name"`
+		Email string `yaml:"Email"`
+	}
 	type addAccount struct {
-		Name string `yaml:"Name"`
-		Code string `yaml:"Code"`
+		Name     string              `yaml:"Name"`
+		Code     string              `yaml:"Code"`
+		Tags     []string            `yaml:"Tags"`
+		Metadata map[string]string   `yaml:"Metadata"`
+		Contacts []addAccountContact `yaml:"Contacts"`
 	}
 
 	field, err := schema.Parse(addAccount{})

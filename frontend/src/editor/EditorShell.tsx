@@ -23,6 +23,7 @@ import { FileToolbar } from "../components/FileToolbar";
 import { ScheduleMenu } from "../components/ScheduleMenu";
 import { SchemaPane, type SchemaField } from "../components/SchemaPane";
 import { dateNextBlockCompletion, dateTemplateInsertion } from "./dateTemplates";
+import { listNextItemCompletion } from "./listTemplates";
 import {
 	defaultScheduleTemplate,
 	sanitizeScheduleTemplate,
@@ -185,7 +186,9 @@ export function EditorShell() {
 					.filter((candidate) => candidate.name !== "")
 					.map((candidate) => toCompletionItem(monaco, model, position, candidate)));
 				return {
-					suggestions: suggestions.concat(dateBlockCompletionItem(monaco, model, position)),
+					suggestions: suggestions
+						.concat(dateBlockCompletionItem(monaco, model, position))
+						.concat(listItemCompletionItem(monaco, model, position)),
 				};
 			},
 		});
@@ -197,6 +200,10 @@ export function EditorShell() {
 							return;
 						}
 						if (hasDateBlockCompletion(editor)) {
+							editor.trigger("yaml-struct-editor", "editor.action.triggerSuggest", null);
+							return;
+						}
+						if (hasListItemCompletion(editor)) {
 							editor.trigger("yaml-struct-editor", "editor.action.triggerSuggest", null);
 							return;
 						}
@@ -822,6 +829,15 @@ function hasDateBlockCompletion(editor: Monaco.editor.IStandaloneCodeEditor): bo
 	return dateNextBlockCompletion(model.getValue().split(/\r?\n/), position.lineNumber) !== null;
 }
 
+function hasListItemCompletion(editor: Monaco.editor.IStandaloneCodeEditor): boolean {
+	const model = editor.getModel();
+	const position = editor.getPosition();
+	if (!model || !position) {
+		return false;
+	}
+	return listNextItemCompletion(model.getValue().split(/\r?\n/), position.lineNumber) !== null;
+}
+
 function dateBlockCompletionItem(
 	monaco: typeof Monaco,
 	model: Monaco.editor.ITextModel,
@@ -848,6 +864,34 @@ function dateBlockCompletionItem(
 		detail: "date block | optional",
 		documentation: "Insert the next day block.",
 		sortText: "0000",
+	}];
+}
+
+function listItemCompletionItem(
+	monaco: typeof Monaco,
+	model: Monaco.editor.ITextModel,
+	position: Monaco.Position,
+): Monaco.languages.CompletionItem[] {
+	const insertion = listNextItemCompletion(model.getValue().split(/\r?\n/), position.lineNumber);
+	if (!insertion) {
+		return [];
+	}
+
+	const range = {
+		startLineNumber: position.lineNumber,
+		endLineNumber: position.lineNumber,
+		startColumn: 1,
+		endColumn: model.getLineMaxColumn(position.lineNumber),
+	};
+	return [{
+		label: "next list item",
+		kind: monaco.languages.CompletionItemKind.Snippet,
+		insertText: `${insertion.text}$0`,
+		insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+		range,
+		detail: "list item | optional",
+		documentation: "Insert the next list item using the previous item shape.",
+		sortText: "0001",
 	}];
 }
 
@@ -878,13 +922,10 @@ async function toCompletionItem(
 	}
 
 	const isContainer = candidate.type === "struct" || candidate.type === "map";
-	const defaultValue = candidate.default ?? candidate.enum?.[0] ?? "";
 	return {
 		label: candidate.name,
 		kind: monaco.languages.CompletionItemKind.Property,
-		insertText: isContainer
-			? `${candidate.name}:\n  $0`
-			: `${candidate.name}: ${defaultValue}$0`,
+		insertText: keyInsertText(candidate, isContainer),
 		insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
 		range,
 		detail: completionDetail(candidate),
@@ -1034,11 +1075,90 @@ async function argsCandidatesForTool(
 }
 
 function argsFieldLine(candidate: CompletionCandidate, indent: string): string {
-	if (candidate.type === "struct" || candidate.type === "map") {
+	return fieldTemplate(candidate, indent);
+}
+
+function keyInsertText(candidate: CompletionCandidate, isContainer: boolean): string {
+	if (candidate.type === "slice" || candidate.type === "array") {
+		return `${fieldTemplate(candidate, "")}$0`;
+	}
+	if (isContainer) {
+		return `${candidate.name}:\n  $0`;
+	}
+	return `${candidate.name}: ${candidateValue(candidate)}$0`;
+}
+
+function fieldTemplate(candidate: CompletionCandidate, indent: string): string {
+	if (candidate.type === "slice" || candidate.type === "array") {
+		return sliceFieldTemplate(candidate, indent);
+	}
+	if (candidate.type === "struct") {
+		return structFieldTemplate(candidate, indent, "");
+	}
+	if (candidate.type === "map") {
 		return `${indent}${candidate.name}:`;
 	}
+	return scalarFieldTemplate(candidate, indent, "");
+}
+
+function sliceFieldTemplate(candidate: CompletionCandidate, indent: string): string {
+	const item = candidate.item;
+	if (!item) {
+		return `${indent}${candidate.name}:\n${indent}  - `;
+	}
+	return `${indent}${candidate.name}:\n${listItemTemplate(item, `${indent}  `)}`;
+}
+
+function listItemTemplate(item: CompletionCandidate, indent: string): string {
+	if (item.type === "struct" && item.children && item.children.length > 0) {
+		const [firstChild, ...restChildren] = item.children;
+		const lines = [fieldTemplateWithPrefix(firstChild, indent, "- ")];
+		for (const child of restChildren) {
+			lines.push(fieldTemplate(child, `${indent}  `));
+		}
+		return lines.join("\n");
+	}
+	if (item.type === "slice" || item.type === "array") {
+		return `${indent}-\n${sliceFieldTemplate({ ...item, name: item.name || "item" }, `${indent}  `)}`;
+	}
+	if (item.type === "map") {
+		return `${indent}-`;
+	}
+	return `${indent}- ${candidateValue(item)}`;
+}
+
+function fieldTemplateWithPrefix(candidate: CompletionCandidate, indent: string, prefix: string): string {
+	if (candidate.type === "slice" || candidate.type === "array") {
+		const item = candidate.item;
+		const itemLine = item ? listItemTemplate(item, `${indent}  `) : `${indent}  - `;
+		return `${indent}${prefix}${candidate.name}:\n${itemLine}`;
+	}
+	if (candidate.type === "struct") {
+		return structFieldTemplate(candidate, indent, prefix);
+	}
+	if (candidate.type === "map") {
+		return `${indent}${prefix}${candidate.name}:`;
+	}
+	return scalarFieldTemplate(candidate, indent, prefix);
+}
+
+function structFieldTemplate(candidate: CompletionCandidate, indent: string, prefix: string): string {
+	if (!candidate.children || candidate.children.length === 0) {
+		return `${indent}${prefix}${candidate.name}:`;
+	}
+	return [
+		`${indent}${prefix}${candidate.name}:`,
+		...candidate.children.map((child) => fieldTemplate(child, `${indent}  `)),
+	].join("\n");
+}
+
+function scalarFieldTemplate(candidate: CompletionCandidate, indent: string, prefix: string): string {
+	return `${indent}${prefix}${candidate.name}: ${candidateValue(candidate)}`;
+}
+
+function candidateValue(candidate: CompletionCandidate): string {
 	const defaultValue = candidate.default ?? candidate.enum?.[0] ?? "";
-	return `${indent}${candidate.name}: ${defaultValue}`;
+	return defaultValue;
 }
 
 type SiblingKeyBlockRange = {

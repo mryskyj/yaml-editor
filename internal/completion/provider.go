@@ -40,14 +40,7 @@ func ProvideWithTools(source string, line int, column int, root *schema.Field, t
 		if child == nil || existing[child.Name] {
 			continue
 		}
-		candidates = append(candidates, Candidate{
-			Name:        child.Name,
-			Type:        child.Type,
-			Description: child.Description,
-			Required:    child.Required,
-			Default:     child.Default,
-			Enum:        child.Enum,
-		})
+		candidates = append(candidates, candidateFromField(child))
 	}
 
 	return candidates
@@ -174,6 +167,37 @@ func enumCandidates(field *schema.Field) []Candidate {
 		})
 	}
 	return candidates
+}
+
+func candidateFromField(field *schema.Field) Candidate {
+	candidate := Candidate{
+		Name:        field.Name,
+		Type:        field.Type,
+		Description: field.Description,
+		Required:    field.Required,
+		Default:     field.Default,
+		Enum:        field.Enum,
+	}
+
+	if len(field.Children) > 0 {
+		candidate.Children = make([]Candidate, 0, len(field.Children))
+		for _, child := range field.Children {
+			if child == nil {
+				continue
+			}
+			candidate.Children = append(candidate.Children, candidateFromField(child))
+		}
+	}
+	if field.Item != nil {
+		item := candidateFromField(field.Item)
+		candidate.Item = &item
+	}
+	if field.MapValue != nil {
+		mapValue := candidateFromField(field.MapValue)
+		candidate.MapValue = &mapValue
+	}
+
+	return candidate
 }
 
 func inferPath(lines []string, cursorIndex int, cursorIndent int) []string {

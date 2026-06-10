@@ -153,6 +153,39 @@ func TestAppCompleteYAMLToolArgs(t *testing.T) {
 	}
 }
 
+func TestAppCompleteYAMLToolArgsIncludesSliceItemSchema(t *testing.T) {
+	t.Parallel()
+
+	app := testApp(t)
+	candidates, err := app.CompleteYAML("scenario:\n  steps:\n    - action:\n        tool: \"gui.AddAccount\"\n        args:\n          \n", 6, 11)
+	if err != nil {
+		t.Fatalf("CompleteYAML() returned error: %v", err)
+	}
+
+	var contacts completion.Candidate
+	for _, candidate := range candidates {
+		if candidate.Name == "Contacts" {
+			contacts = candidate
+			break
+		}
+	}
+	if contacts.Name == "" {
+		t.Fatalf("CompleteYAML() candidates = %#v, want Contacts", candidates)
+	}
+	if contacts.Type != schema.FieldTypeSlice {
+		t.Fatalf("Contacts.Type = %q, want slice", contacts.Type)
+	}
+	if contacts.Item == nil || contacts.Item.Type != schema.FieldTypeStruct {
+		t.Fatalf("Contacts.Item = %#v, want struct item", contacts.Item)
+	}
+	if _, ok := findCandidate(contacts.Item.Children, "Name"); !ok {
+		t.Fatalf("Contacts.Item.Children = %#v, want Name", contacts.Item.Children)
+	}
+	if _, ok := findCandidate(contacts.Item.Children, "Email"); !ok {
+		t.Fatalf("Contacts.Item.Children = %#v, want Email", contacts.Item.Children)
+	}
+}
+
 func TestAppValidateYAMLToolArgs(t *testing.T) {
 	t.Parallel()
 
@@ -424,10 +457,15 @@ func writeAppSourceFile(t *testing.T, dir string, name string, content string) {
 }
 
 func hasCandidate(candidates []completion.Candidate, name string) bool {
+	_, ok := findCandidate(candidates, name)
+	return ok
+}
+
+func findCandidate(candidates []completion.Candidate, name string) (completion.Candidate, bool) {
 	for _, candidate := range candidates {
 		if candidate.Name == name {
-			return true
+			return candidate, true
 		}
 	}
-	return false
+	return completion.Candidate{}, false
 }
