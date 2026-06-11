@@ -46,6 +46,9 @@ func TestAppSchema(t *testing.T) {
 	if _, ok := root.FindChild("gui.AddAccounts"); !ok {
 		t.Fatal("Schema() missing gui.AddAccounts tool schema")
 	}
+	if _, ok := root.FindChild("cloud.ecs.RunTask"); !ok {
+		t.Fatal("Schema() missing cloud.ecs.RunTask tool schema")
+	}
 	if _, ok := root.FindChild("sampleschema.Config"); !ok {
 		t.Fatal("Schema() missing sampleschema.Config tool schema")
 	}

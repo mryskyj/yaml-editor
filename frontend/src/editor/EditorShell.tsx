@@ -1215,7 +1215,7 @@ function completionRange(
 ): Monaco.IRange {
 	const toolContext = toolValueContext(line, position.column);
 	if (toolContext !== null) {
-		const startColumn = candidate.name.endsWith(".")
+		const startColumn = candidate.name.endsWith(".") && toolContext.packageName === ""
 			? toolContext.tokenStartColumn
 			: toolContext.segmentStartColumn;
 		return {
