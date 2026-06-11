@@ -3,6 +3,7 @@ export type ListTemplateInsertion = {
 	text: string;
 	cursorLineOffset: number;
 	cursorColumn: number;
+	insertLineNumber?: number;
 };
 
 export function listNextItemCompletion(lines: string[], lineNumber: number): ListTemplateInsertion | null {
@@ -23,11 +24,6 @@ export function listNextItemCompletions(lines: string[], lineNumber: number): Li
 
 	const completions: ListTemplateInsertion[] = [];
 	for (const itemStartIndex of findListItemStarts(lines, previousIndex)) {
-		const listIndent = indentationLength(lines[itemStartIndex] ?? "");
-		if (hasNextListItem(lines, currentIndex, listIndent)) {
-			continue;
-		}
-
 		const text = listItemTemplate(lines, itemStartIndex, previousIndex);
 		if (text === "") {
 			continue;
@@ -38,6 +34,7 @@ export function listNextItemCompletions(lines: string[], lineNumber: number): Li
 			text,
 			cursorLineOffset: 0,
 			cursorColumn: firstEditableColumn(text),
+			insertLineNumber: listInsertionLineNumber(lines, itemStartIndex),
 		});
 	}
 	return completions;
@@ -68,22 +65,20 @@ function findListItemStart(lines: string[], previousIndex: number): number {
 	return findListItemStarts(lines, previousIndex)[0] ?? -1;
 }
 
-function hasNextListItem(lines: string[], currentIndex: number, listIndent: number): boolean {
-	for (let index = currentIndex + 1; index < lines.length; index++) {
+function listInsertionLineNumber(lines: string[], itemStartIndex: number): number {
+	const listIndent = indentationLength(lines[itemStartIndex] ?? "");
+	for (let index = itemStartIndex + 1; index < lines.length; index++) {
 		const line = lines[index] ?? "";
 		if (line.trim() === "") {
 			continue;
 		}
 
 		const indent = indentationLength(line);
-		if (indent < listIndent) {
-			return false;
-		}
-		if (indent === listIndent) {
-			return isListItemLine(line);
+		if (indent <= listIndent) {
+			return index + 1;
 		}
 	}
-	return false;
+	return lines.length + 1;
 }
 
 function listItemTemplate(lines: string[], itemStartIndex: number, previousIndex: number): string {

@@ -63,6 +63,7 @@
 - [x] Schema paneのRequired/Optionを色分け表示する
 - [x] dates holiday後の補完候補にschedulesを追加する
 - [x] `scenario.steps[].day_ref` と `schedule_ref` を任意キーとして初期YAMLから省略する
+- [x] step内のキー補完で次step追加候補を非表示にする
 - [x] `scenario.steps[].day_ref` の動的day候補補完を実装する
 - [x] `scenario.steps[].schedule_ref` の動的schedule候補補完を実装する
 - [x] 最近開いたファイルをバックエンドのRecentFilesから読み込む

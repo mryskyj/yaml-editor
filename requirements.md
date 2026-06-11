@@ -318,7 +318,8 @@ schedule情報は通常変更しないが、必要に応じてアプリ内メニ
 `schedule_ref` 候補では、型やRequired/Optionなどのschema情報は表示しない。
 
 組み込みRootスキーマの `scenario.steps` では、step情報をリストで表す。
-`steps:` で改行した場合は、最初のstep要素として `id`, `name`, `day_ref`, `schedule_ref`, `action.tool` を自動入力する。
+`steps:` で改行した場合は、最初のstep要素として必須キーの `id`, `name`, `action.tool` を自動入力する。
+step内のキー補完では、入力可能キーがある場合は次step追加候補を表示しない。
 
 ---
 

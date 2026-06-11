@@ -29,8 +29,6 @@ export function stepTemplateInsertion(lines: string[], lineNumber: number): Step
 	const text = [
 		`${entryIndent}- id: ""`,
 		`${childIndent}name: ""`,
-		`${childIndent}day_ref: `,
-		`${childIndent}schedule_ref: `,
 		`${childIndent}action:`,
 		`${actionChildIndent}tool: ""`,
 	].join("\n");

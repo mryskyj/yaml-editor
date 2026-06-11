@@ -427,8 +427,9 @@ Reset時はApp serviceの `ScheduleTemplate` から取得したRoot schema defau
 組み込みRootスキーマの `scenario.steps` は `[]Step` として扱い、YAML上ではリスト要素として入力する。
 
 Monaco Editorの改行入力イベントでは、`steps:` の直後で改行した場合、現在の空行に最初のstepテンプレートを挿入する。
-テンプレートには `id`, `name`, `day_ref`, `schedule_ref`, `action.tool` を含める。
+テンプレートには必須キーの `id`, `name`, `action.tool` を含める。
 既に `steps` 配下にリスト要素が存在する場合は重複挿入しない。
+step内のキー補完候補が存在する場合は、次のstepリスト要素追加候補を表示しない。
 stepテンプレートの判定と生成は `frontend/src/editor/stepTemplates.ts` に分離し、`EditorShell` はMonacoモデルへの挿入だけを担当する。
 
 ### File service

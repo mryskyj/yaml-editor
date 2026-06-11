@@ -253,11 +253,11 @@ export function EditorShell() {
 				);
 				const suggestions = await Promise.all(candidates
 					.filter((candidate) => candidate.name !== "")
-					.map((candidate) => toCompletionItem(monaco, model, position, candidate)));
+					.map((candidate, index) => toCompletionItem(monaco, model, position, candidate, index)));
 				return {
 					suggestions: suggestions
 						.concat(dateBlockCompletionItems(monaco, model, position, scheduleTemplateRef.current))
-						.concat(listItemCompletionItem(monaco, model, position)),
+						.concat(listItemCompletionItem(monaco, model, position, suggestions.length)),
 				};
 			},
 		});
@@ -1067,6 +1067,7 @@ function listItemCompletionItem(
 	monaco: typeof Monaco,
 	model: Monaco.editor.ITextModel,
 	position: Monaco.Position,
+	sortOffset = 0,
 ): Monaco.languages.CompletionItem[] {
 	const insertions = listNextItemCompletions(model.getValue().split(/\r?\n/), position.lineNumber);
 	if (insertions.length === 0) {
@@ -1082,13 +1083,69 @@ function listItemCompletionItem(
 	return insertions.map((insertion, index) => ({
 		label: insertion.label,
 		kind: monaco.languages.CompletionItemKind.Snippet,
-		insertText: `${insertion.text}$0`,
+		insertText: listItemMainInsertText(model, position, insertion),
 		insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
 		range,
+		additionalTextEdits: listItemAdditionalTextEdits(model, position, insertion),
 		detail: "list item | optional",
 		documentation: "Insert a list item using the selected list shape.",
-		sortText: `000${index + 1}`,
+		sortText: `900${sortOffset + index + 1}`,
 	}));
+}
+
+function listItemAdditionalTextEdits(
+	model: Monaco.editor.ITextModel,
+	position: Monaco.Position,
+	insertion: { text: string; insertLineNumber?: number },
+): Monaco.editor.ISingleEditOperation[] | undefined {
+	if (!insertion.insertLineNumber || insertion.insertLineNumber === position.lineNumber) {
+		return undefined;
+	}
+	return [{
+		range: listItemEditRange(model, insertion.insertLineNumber),
+		text: listItemEditText(model, insertion),
+	}];
+}
+
+function listItemEditRange(model: Monaco.editor.ITextModel, insertLineNumber: number): Monaco.IRange {
+	const lineNumber = Math.min(insertLineNumber, model.getLineCount() + 1);
+	if (lineNumber > model.getLineCount()) {
+		const lastLine = model.getLineCount();
+		return {
+			startLineNumber: lastLine,
+			endLineNumber: lastLine,
+			startColumn: model.getLineMaxColumn(lastLine),
+			endColumn: model.getLineMaxColumn(lastLine),
+		};
+	}
+	return {
+		startLineNumber: lineNumber,
+		endLineNumber: lineNumber,
+		startColumn: 1,
+		endColumn: 1,
+	};
+}
+
+function listItemEditText(
+	model: Monaco.editor.ITextModel,
+	insertion: { text: string; insertLineNumber?: number },
+): string {
+	if (!insertion.insertLineNumber || insertion.insertLineNumber <= model.getLineCount()) {
+		return `${insertion.text}\n`;
+	}
+	const lastLine = model.getLineContent(model.getLineCount());
+	return `${lastLine.trim() === "" ? "" : "\n"}${insertion.text}`;
+}
+
+function listItemMainInsertText(
+	model: Monaco.editor.ITextModel,
+	position: Monaco.Position,
+	insertion: { text: string; insertLineNumber?: number },
+): string {
+	if (!insertion.insertLineNumber || insertion.insertLineNumber === position.lineNumber) {
+		return `${insertion.text}$0`;
+	}
+	return "";
 }
 
 async function toCompletionItem(
@@ -1096,6 +1153,7 @@ async function toCompletionItem(
 	model: Monaco.editor.ITextModel,
 	position: Monaco.Position,
 	candidate: CompletionCandidate,
+	index = 0,
 ): Promise<Monaco.languages.CompletionItem> {
 	const line = model.getLineContent(position.lineNumber);
 	const isValue = line.lastIndexOf(":", position.column - 1) >= 0;
@@ -1111,6 +1169,7 @@ async function toCompletionItem(
 				insertText: candidate.name,
 				range,
 				documentation: candidate.description,
+				sortText: `100${index + 1}`,
 			};
 		}
 
@@ -1123,6 +1182,7 @@ async function toCompletionItem(
 			additionalTextEdits: await toolArgsAdditionalTextEdits(model, position, line, candidate.name),
 			detail: completionDetail(candidate),
 			documentation: candidate.description,
+			sortText: `100${index + 1}`,
 			command: shouldTriggerSuggestAfterCompletion(line, position.column, candidate.name)
 				? { id: "editor.action.triggerSuggest", title: "Trigger Suggest" }
 				: undefined,
@@ -1138,6 +1198,7 @@ async function toCompletionItem(
 		range,
 		detail: completionDetail(candidate),
 		documentation: candidate.description,
+		sortText: `100${index + 1}`,
 	};
 }
 

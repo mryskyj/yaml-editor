@@ -132,7 +132,7 @@ type Server struct {
 テンプレートはToolbarの `Schedules` メニューから変更できます。
 
 `scenario.steps` では、`steps:` の直後で改行すると最初のstepリスト要素を自動入力します。
-テンプレートは `id`, `name`, `day_ref`, `schedule_ref`, `action.tool` までを含みます。
+テンプレートは必須キーの `id`, `name`, `action.tool` までを含みます。
 `day_ref` の値入力時は、編集中の `common.dates` に存在する `day1`, `day2` などを候補として表示し、候補詳細に `date` と `holiday` を表示します。
 `schedule_ref` の値入力時は、編集中の `common.schedules` に存在する `run1`, `run2` などを候補として表示し、候補詳細にrun値とコメントを表示します。
 
