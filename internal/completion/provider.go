@@ -38,6 +38,9 @@ func ProvideWithTools(source string, line int, column int, root *schema.Field, t
 		if valueField.Name == "day_ref" {
 			return dayRefCandidates(source, valueField)
 		}
+		if valueField.Name == "schedule_ref" {
+			return scheduleRefCandidates(source, valueField)
+		}
 		return enumCandidates(valueField)
 	}
 
@@ -95,6 +98,52 @@ func dateRefDescription(node *yaml.Node) string {
 	}
 	if holiday := mappingValue(node, "holiday"); holiday != nil && holiday.Kind == yaml.ScalarNode {
 		parts = append(parts, "holiday: "+holiday.Value)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func scheduleRefCandidates(source string, field *schema.Field) []Candidate {
+	var document yaml.Node
+	if err := yaml.Unmarshal([]byte(source), &document); err != nil || len(document.Content) == 0 {
+		return nil
+	}
+
+	schedules := mappingValue(mappingValue(document.Content[0], "common"), "schedules")
+	if schedules == nil || schedules.Kind != yaml.MappingNode {
+		return nil
+	}
+
+	candidates := make([]Candidate, 0, len(schedules.Content)/2)
+	for index := 0; index+1 < len(schedules.Content); index += 2 {
+		keyNode := schedules.Content[index]
+		valueNode := schedules.Content[index+1]
+		if keyNode.Kind != yaml.ScalarNode || keyNode.Value == "" {
+			continue
+		}
+
+		candidates = append(candidates, Candidate{
+			Name:        keyNode.Value,
+			Type:        field.Type,
+			Description: scheduleRefDescription(valueNode),
+			Required:    field.Required,
+			Default:     field.Default,
+			Enum:        field.Enum,
+		})
+	}
+	return candidates
+}
+
+func scheduleRefDescription(node *yaml.Node) string {
+	if node == nil || node.Kind != yaml.ScalarNode {
+		return ""
+	}
+
+	parts := make([]string, 0, 2)
+	if node.Value != "" {
+		parts = append(parts, "value: "+node.Value)
+	}
+	if node.LineComment != "" {
+		parts = append(parts, node.LineComment)
 	}
 	return strings.Join(parts, ", ")
 }

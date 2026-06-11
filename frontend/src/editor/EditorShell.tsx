@@ -1102,7 +1102,7 @@ async function toCompletionItem(
 	const range = completionRange(model, position, line, candidate);
 
 	if (isValue) {
-		if (isDayRefValueLine(line)) {
+		if (isReferenceValueLine(line)) {
 			return {
 				label: candidate.description
 					? { label: candidate.name, description: candidate.description }
@@ -1141,9 +1141,9 @@ async function toCompletionItem(
 	};
 }
 
-function isDayRefValueLine(line: string): boolean {
+function isReferenceValueLine(line: string): boolean {
 	const trimmed = line.trim().replace(/^- /, "");
-	return /^day_ref\s*:/.test(trimmed);
+	return /^(day_ref|schedule_ref)\s*:/.test(trimmed);
 }
 
 function completionRange(

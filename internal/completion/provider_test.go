@@ -324,6 +324,46 @@ scenario:
 	}
 }
 
+func TestProvideScheduleRefValueCandidatesFromSchedules(t *testing.T) {
+	t.Parallel()
+
+	type root struct {
+		Common struct {
+			Schedules map[string]int `yaml:"schedules"`
+		} `yaml:"common"`
+		Scenario struct {
+			Steps []struct {
+				ScheduleRef string `yaml:"schedule_ref"`
+			} `yaml:"steps"`
+		} `yaml:"scenario"`
+	}
+	rootSchema, err := schema.Parse(root{})
+	if err != nil {
+		t.Fatalf("schema.Parse() returned error: %v", err)
+	}
+
+	source := `common:
+  schedules:
+    run1: &run1 1 #BOD
+    run2: &run2 2 #あいうえお
+scenario:
+  steps:
+    - schedule_ref: 
+`
+	candidates := Provide(source, 7, 21, rootSchema)
+	names := candidateNames(candidates)
+	want := []string{"run1", "run2"}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("candidate names = %#v, want %#v", names, want)
+	}
+	if candidates[0].Description != "value: 1, #BOD" {
+		t.Fatalf("run1 Description = %q", candidates[0].Description)
+	}
+	if candidates[1].Description != "value: 2, #あいうえお" {
+		t.Fatalf("run2 Description = %q", candidates[1].Description)
+	}
+}
+
 func TestProvideNilSchema(t *testing.T) {
 	t.Parallel()
 

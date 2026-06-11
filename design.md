@@ -413,6 +413,10 @@ run3: &run3 3 #かきくけこ
 Monaco Editorの改行入力イベントでは、`schedules:` の直後で改行した場合、現在の空行に登録済みscheduleテンプレート全体を挿入する。
 既に `schedules` 配下に `runN` が存在する場合は重複挿入しない。
 
+`scenario.steps[].schedule_ref` の値補完では、Completion providerが現在のYAML本文を解析し、`common.schedules` 配下に定義済みのrunキーを候補として返す。
+候補のdescriptionにはrunの値と行コメントを入れ、フロントエンドでは通常の型情報表示を使わず候補ラベルの横に表示する。
+候補は固定値ではなく、編集中のYAML本文に存在する `common.schedules` の内容から毎回生成する。
+
 scheduleテンプレートはToolbarの `Schedules` メニューから編集できる。
 編集内容は `localStorage` に保存し、次回以降の自動入力に使う。
 Reset時はApp serviceの `ScheduleTemplate` から取得したRoot schema defaultsへ戻す。

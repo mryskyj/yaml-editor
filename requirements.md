@@ -313,6 +313,9 @@ schedules:
 schedule情報のデフォルト値は `app/rootschema/defaults.yaml` から取得する。
 schedule情報は通常変更しないが、必要に応じてアプリ内メニューから登録内容を変更できる。
 変更後の登録内容は、次回以降の `schedules:` 改行時の自動入力に使う。
+`scenario.steps[].schedule_ref` の値入力時は、現在のYAML本文の `common.schedules` に存在する `run1`, `run2` などのキーを動的に候補として表示する。
+`schedule_ref` 候補には、参照値として該当runの値とコメントを表示する。
+`schedule_ref` 候補では、型やRequired/Optionなどのschema情報は表示しない。
 
 組み込みRootスキーマの `scenario.steps` では、step情報をリストで表す。
 `steps:` で改行した場合は、最初のstep要素として `id`, `name`, `day_ref`, `schedule_ref`, `action.tool` を自動入力する。
