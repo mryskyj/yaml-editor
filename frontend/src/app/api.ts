@@ -66,6 +66,14 @@ export async function loadSchema(): Promise<SchemaField | null> {
 	return normalizeSchema(result);
 }
 
+export async function loadRootSchema(): Promise<SchemaField | null> {
+	const result = await callBackend(`${serviceName}.RootSchema`);
+	if (!result || typeof result !== "object") {
+		return null;
+	}
+	return normalizeSchema(result);
+}
+
 export async function saveYAML(path: string, content: string): Promise<void> {
 	await callRequiredBackend(`${serviceName}.SaveFile`, path, content);
 }

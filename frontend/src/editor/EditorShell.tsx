@@ -11,6 +11,7 @@ import type * as Monaco from "monaco-editor";
 import {
 	chooseSavePath,
 	completeYAML,
+	loadRootSchema,
 	loadSchema,
 	saveYAML,
 	type CompletionCandidate,
@@ -95,6 +96,63 @@ const sampleSchema: SchemaField = {
 	],
 };
 
+const sampleRootSchema: SchemaField = {
+	name: "File",
+	type: "struct",
+	required: true,
+	children: [
+		{
+			name: "scenario",
+			type: "struct",
+			required: false,
+			children: [
+				{ name: "id", type: "int", required: false },
+				{ name: "name", type: "string", required: false },
+				{ name: "description", type: "string", required: false },
+				{
+					name: "docs",
+					type: "slice",
+					required: false,
+					item: {
+						name: "doc",
+						type: "struct",
+						required: false,
+						children: [{ name: "name", type: "string", required: false }],
+					},
+				},
+				{
+					name: "steps",
+					type: "slice",
+					required: false,
+					item: {
+						name: "step",
+						type: "struct",
+						required: false,
+						children: [
+							{ name: "id", type: "string", required: false },
+							{ name: "name", type: "string", required: false },
+							{ name: "day_ref", type: "string", required: false },
+							{ name: "schedule_ref", type: "string", required: false },
+							{
+								name: "action",
+								type: "struct",
+								required: false,
+								children: [
+									{ name: "tool", type: "string", required: true },
+									{ name: "user", type: "string", required: false },
+									{ name: "password", type: "string", required: false },
+									{ name: "path", type: "string", required: false },
+									{ name: "args", type: "map", required: false },
+								],
+							},
+						],
+					},
+				},
+			],
+		},
+	],
+};
+
 export function EditorShell() {
 	const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
 	const monacoRef = useRef<typeof Monaco | null>(null);
@@ -114,6 +172,7 @@ export function EditorShell() {
 	const [openRequestID, setOpenRequestID] = useState(0);
 	const [recentFiles, setRecentFiles] = useState<string[]>(["config.yaml"]);
 	const [schema, setSchema] = useState<SchemaField>(sampleSchema);
+	const [rootSchema, setRootSchema] = useState<SchemaField>(sampleRootSchema);
 	const currentTab = activeTab(tabState);
 	const pendingCloseTab = pendingCloseTabID
 		? tabState.tabs.find((tab) => tab.id === pendingCloseTabID)
@@ -250,6 +309,11 @@ export function EditorShell() {
 		void loadSchema().then((loadedSchema) => {
 			if (loadedSchema) {
 				setSchema(loadedSchema);
+			}
+		});
+		void loadRootSchema().then((loadedSchema) => {
+			if (loadedSchema) {
+				setRootSchema(loadedSchema);
 			}
 		});
 	}, []);
@@ -526,7 +590,7 @@ export function EditorShell() {
 						value={content}
 					/>
 				</div>
-				<SchemaPane root={schema} content={content} cursor={cursor} />
+				<SchemaPane root={schema} documentRoot={rootSchema} content={content} cursor={cursor} />
 			</section>
 			{contextMenu ? (
 				<div

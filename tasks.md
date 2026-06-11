@@ -52,6 +52,12 @@
 - [x] リスト要素末尾の改行で次要素補完を実装する
 - [x] 名前付きsliceのtool schemaとargsリスト補完を実装する
 - [x] ネストしたリスト末尾で内側・親側の次要素候補を提示する
+- [x] 右ペインのスキーマ表示対象を参照用tool schemaへ変更する
+- [x] Schema pane Currentをargs内のtool schemaフィールド表示へ切り替える
+- [x] Schema pane Currentのaction欄表示をtool行とその他で切り替える
+- [x] Schema pane Currentのaction欄でActionフィールドを表示する不具合を修正する
+- [x] Schema pane CurrentのscenarioとstepsでRootスキーマ構造体を表示する
+- [x] Schema pane Currentのsteps表示名がrootになる不具合を修正する
 
 ---
 

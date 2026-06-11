@@ -27,17 +27,42 @@ func TestAppSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Schema() returned error: %v", err)
 	}
+	if root.Name != "ToolSchemas" {
+		t.Fatalf("root.Name = %q, want ToolSchemas", root.Name)
+	}
+	if _, ok := root.FindChild("schema_version"); ok {
+		t.Fatal("Schema() includes root schema field schema_version")
+	}
+	if _, ok := root.FindChild("common"); ok {
+		t.Fatal("Schema() includes root schema field common")
+	}
+	if _, ok := root.FindChild("scenario"); ok {
+		t.Fatal("Schema() includes root schema field scenario")
+	}
+	if _, ok := root.FindChild("gui.AddAccount"); !ok {
+		t.Fatal("Schema() missing gui.AddAccount tool schema")
+	}
+	if _, ok := root.FindChild("gui.AddAccounts"); !ok {
+		t.Fatal("Schema() missing gui.AddAccounts tool schema")
+	}
+	if _, ok := root.FindChild("sampleschema.Config"); !ok {
+		t.Fatal("Schema() missing sampleschema.Config tool schema")
+	}
+}
+
+func TestAppRootSchemaReturnsDocumentSchema(t *testing.T) {
+	t.Parallel()
+
+	app := testApp(t)
+	root, err := app.RootSchema()
+	if err != nil {
+		t.Fatalf("RootSchema() returned error: %v", err)
+	}
 	if root.Name != "File" {
 		t.Fatalf("root.Name = %q, want File", root.Name)
 	}
-	if _, ok := root.FindChild("schema_version"); !ok {
-		t.Fatal("Schema() missing schema_version field")
-	}
-	if _, ok := root.FindChild("common"); !ok {
-		t.Fatal("Schema() missing common field")
-	}
 	if _, ok := root.FindChild("scenario"); !ok {
-		t.Fatal("Schema() missing scenario field")
+		t.Fatal("RootSchema() missing scenario field")
 	}
 }
 
@@ -296,9 +321,9 @@ func TestAppSchemaCommonDatesUseDayDateHolidayStructure(t *testing.T) {
 	t.Parallel()
 
 	app := testApp(t)
-	root, err := app.Schema()
+	root, err := app.rootSchema()
 	if err != nil {
-		t.Fatalf("Schema() returned error: %v", err)
+		t.Fatalf("rootSchema() returned error: %v", err)
 	}
 
 	common, ok := root.FindChild("common")
@@ -331,9 +356,9 @@ func TestAppSchemaCommonSchedulesUseRunScalarStructure(t *testing.T) {
 	t.Parallel()
 
 	app := testApp(t)
-	root, err := app.Schema()
+	root, err := app.rootSchema()
 	if err != nil {
-		t.Fatalf("Schema() returned error: %v", err)
+		t.Fatalf("rootSchema() returned error: %v", err)
 	}
 
 	common, ok := root.FindChild("common")
@@ -388,9 +413,9 @@ func TestNewWithSchemaSourceAutoDetectsAlternateSample(t *testing.T) {
 		t.Fatalf("NewWithSchemaSource() returned error: %v", err)
 	}
 
-	root, err := app.Schema()
+	root, err := app.rootSchema()
 	if err != nil {
-		t.Fatalf("Schema() returned error: %v", err)
+		t.Fatalf("rootSchema() returned error: %v", err)
 	}
 	if root.Name != "Workspace" {
 		t.Fatalf("root.Name = %q, want Workspace", root.Name)
@@ -400,6 +425,32 @@ func TestNewWithSchemaSourceAutoDetectsAlternateSample(t *testing.T) {
 	}
 	if _, ok := root.FindChild("server"); ok {
 		t.Fatal("Schema() includes built-in sample server field")
+	}
+}
+
+func TestAppSchemaWithExternalSourceShowsExternalToolSchemas(t *testing.T) {
+	t.Parallel()
+
+	app, err := NewWithSchemaSource(filepath.Join("..", "schemas", "alternate-sample"), "")
+	if err != nil {
+		t.Fatalf("NewWithSchemaSource() returned error: %v", err)
+	}
+
+	root, err := app.Schema()
+	if err != nil {
+		t.Fatalf("Schema() returned error: %v", err)
+	}
+	if root.Name != "ToolSchemas" {
+		t.Fatalf("root.Name = %q, want ToolSchemas", root.Name)
+	}
+	if _, ok := root.FindChild("sample.Project"); !ok {
+		t.Fatalf("Schema() = %#v, want sample.Project", root)
+	}
+	if _, ok := root.FindChild("common"); ok {
+		t.Fatal("Schema() includes root schema field common")
+	}
+	if _, ok := root.FindChild("gui.AddAccount"); ok {
+		t.Fatal("Schema() includes built-in sample tool schema")
 	}
 }
 

@@ -14,6 +14,7 @@ export type SchemaField = {
 
 type SchemaPaneProps = {
   root: SchemaField;
+  documentRoot?: SchemaField;
   content: string;
   cursor: {
     line: number;
@@ -23,10 +24,10 @@ type SchemaPaneProps = {
 
 type TabID = "current" | "search" | "tree";
 
-export function SchemaPane({ root, content, cursor }: SchemaPaneProps) {
+export function SchemaPane({ root, documentRoot, content, cursor }: SchemaPaneProps) {
   const [activeTab, setActiveTab] = useState<TabID>("current");
   const [query, setQuery] = useState("");
-  const context = schemaContext(root, content, cursor.line);
+  const context = schemaContext(root, documentRoot, content, cursor.line);
   const searchResults = query.trim() ? searchSchema(root, query.trim()) : [];
 
   return (
@@ -187,8 +188,25 @@ function SchemaNode({ field, depth }: { field: SchemaField; depth: number }) {
   );
 }
 
-function schemaContext(root: SchemaField, content: string, cursorLine: number): SchemaContext {
+function schemaContext(
+  root: SchemaField,
+  documentRoot: SchemaField | undefined,
+  content: string,
+  cursorLine: number,
+): SchemaContext {
   const path = inferPath(content, cursorLine);
+  const argsContext = argsSchemaContext(root, content, cursorLine);
+  if (argsContext) {
+    return argsContext;
+  }
+  if (isToolLineInActionBlock(content, cursorLine)) {
+    return toolSchemaContext(root);
+  }
+  const documentContext = documentRoot ? documentSchemaContext(documentRoot, content, cursorLine) : null;
+  if (documentContext) {
+    return documentContext;
+  }
+
   const matched = fieldAtPath(root, path);
   const current = matched ?? root;
   const currentPath = matched ? path : [];
@@ -204,6 +222,91 @@ function schemaContext(root: SchemaField, content: string, cursorLine: number): 
     path: matched ? path : parentPath,
     current,
     siblings: containerChildren(candidateParent).map((field) => ({
+      field,
+      used: used.has(field.name),
+    })),
+  };
+}
+
+function toolSchemaContext(root: SchemaField): SchemaContext {
+  return {
+    rootName: root.name,
+    path: [],
+    current: root,
+    siblings: containerChildren(root).map((field) => ({
+      field,
+      used: false,
+    })),
+  };
+}
+
+function argsSchemaContext(
+  root: SchemaField,
+  content: string,
+  cursorLine: number,
+): SchemaContext | null {
+  const argsBlock = argsBlockContext(content, cursorLine);
+  if (!argsBlock) {
+    return null;
+  }
+
+  const toolName = siblingToolValue(content, argsBlock.lineIndex, argsBlock.indent);
+  if (!toolName) {
+    return null;
+  }
+
+  const toolSchema = containerChildren(root).find((field) => field.name === toolName);
+  if (!toolSchema) {
+    return null;
+  }
+
+  const argsRoot = toolSchema.type === "slice" || toolSchema.type === "array"
+    ? toolSchema.item ?? toolSchema
+    : toolSchema;
+  const argsCurrent = argsCurrentContainer(argsRoot, content, cursorLine, argsBlock);
+  const current = argsCurrent.field;
+
+  return {
+    rootName: toolName,
+    path: argsCurrent.path,
+    current,
+    siblings: containerChildren(current).map((field) => ({
+      field,
+      used: false,
+    })),
+  };
+}
+
+function documentSchemaContext(
+  documentRoot: SchemaField,
+  content: string,
+  cursorLine: number,
+): SchemaContext | null {
+  const path = inferPath(content, cursorLine);
+  const matched = fieldAtPath(documentRoot, path);
+  const currentPath = matched && hasContainerChildren(matched)
+    ? path
+    : nearestDocumentContainerPath(documentRoot, path);
+  const field = matched && hasContainerChildren(matched)
+    ? matched
+    : documentContainerFromPathKeys(documentRoot, path) ?? fieldAtPath(documentRoot, currentPath);
+  if (!field) {
+    return null;
+  }
+
+  const container = documentContainerField(field);
+  const containerPath = container === field ? currentPath : collectionContainerPath(currentPath);
+  const displayField = displayStructField(
+    container,
+    currentPath[currentPath.length - 1] ?? field.name,
+  );
+  const used = usedKeysAtPath(content, containerPath);
+
+  return {
+    rootName: displayField.name,
+    path: [],
+    current: displayField,
+    siblings: containerChildren(container).map((field) => ({
       field,
       used: used.has(field.name),
     })),
@@ -234,6 +337,135 @@ function inferPath(content: string, cursorLine: number): string[] {
 
   popToIndent(stack, currentIndent(currentLine));
   return stack.map((entry) => entry.key);
+}
+
+type ArgsBlockContext = {
+  lineIndex: number;
+  indent: number;
+};
+
+type ActionBlockContext = {
+  lineIndex: number;
+  indent: number;
+};
+
+function argsBlockContext(content: string, cursorLine: number): ArgsBlockContext | null {
+  const lines = content.split(/\r?\n/);
+  const currentLineIndex = Math.max(Math.min(cursorLine - 1, lines.length - 1), 0);
+  for (let index = currentLineIndex; index >= 0; index--) {
+    const line = lines[index] ?? "";
+    if (line.trim() === "") {
+      continue;
+    }
+
+    const entry = parseKeyLine(line);
+    if (!entry) {
+      continue;
+    }
+    if (entry.key === "args" && entry.indent < currentIndent(lines[currentLineIndex] ?? "")) {
+      return { lineIndex: index, indent: entry.indent };
+    }
+    if (entry.indent <= currentIndent(lines[currentLineIndex] ?? "") && entry.key !== "args") {
+      continue;
+    }
+  }
+  return null;
+}
+
+function actionBlockContext(content: string, cursorLine: number): ActionBlockContext | null {
+  const lines = content.split(/\r?\n/);
+  const currentLineIndex = Math.max(Math.min(cursorLine - 1, lines.length - 1), 0);
+  const cursorIndent = currentIndent(lines[currentLineIndex] ?? "");
+
+  for (let index = currentLineIndex; index >= 0; index--) {
+    const line = lines[index] ?? "";
+    if (line.trim() === "") {
+      continue;
+    }
+
+    const entry = parseKeyLine(line);
+    if (!entry) {
+      continue;
+    }
+    if (
+      entry.key === "action" &&
+      (index === currentLineIndex || entry.indent < cursorIndent)
+    ) {
+      return { lineIndex: index, indent: entry.indent };
+    }
+    if (entry.indent < cursorIndent && entry.key !== "action") {
+      continue;
+    }
+  }
+  return null;
+}
+
+function isToolLineInActionBlock(content: string, cursorLine: number): boolean {
+  const actionBlock = actionBlockContext(content, cursorLine);
+  if (!actionBlock) {
+    return false;
+  }
+  const lines = content.split(/\r?\n/);
+  const cursorIndex = Math.max(Math.min(cursorLine - 1, lines.length - 1), 0);
+  const currentEntry = parseKeyLine(lines[cursorIndex] ?? "");
+  return Boolean(
+    currentEntry &&
+      currentEntry.key === "tool" &&
+      currentEntry.indent > actionBlock.indent,
+  );
+}
+
+function siblingToolValue(content: string, argsLineIndex: number, argsIndent: number): string {
+  const lines = content.split(/\r?\n/);
+  for (let index = argsLineIndex - 1; index >= 0; index--) {
+    const line = lines[index] ?? "";
+    if (line.trim() === "") {
+      continue;
+    }
+
+    const indent = currentIndent(line);
+    if (indent < argsIndent) {
+      return "";
+    }
+    if (indent !== argsIndent) {
+      continue;
+    }
+
+    const parsed = parseKeyValueLine(line);
+    if (parsed?.key === "tool") {
+      return parsed.value;
+    }
+  }
+  return "";
+}
+
+function argsCurrentContainer(
+  argsRoot: SchemaField,
+  content: string,
+  cursorLine: number,
+  argsBlock: ArgsBlockContext,
+): { field: SchemaField; path: string[] } {
+  const lines = content.split(/\r?\n/);
+  const cursorIndex = Math.max(Math.min(cursorLine - 1, lines.length - 1), 0);
+
+  for (let index = cursorIndex; index > argsBlock.lineIndex; index--) {
+    const entry = parseKeyLine(lines[index] ?? "");
+    if (!entry || entry.indent <= argsBlock.indent) {
+      continue;
+    }
+
+    const child = containerChildren(argsRoot).find((field) => field.name === entry.key);
+    if (!child) {
+      continue;
+    }
+
+    const container = collectionValueField(child);
+    if (containerChildren(container).length > 0) {
+      return { field: container, path: [entry.key] };
+    }
+  }
+
+  return { field: argsRoot, path: [] };
 }
 
 function popToIndent(stack: Array<{ indent: number; key: string }>, indent: number) {
@@ -279,6 +511,18 @@ function parseKeyLine(line: string): { indent: number; key: string } | null {
   };
 }
 
+function parseKeyValueLine(line: string): { indent: number; key: string; value: string } | null {
+  const match = line.match(/^(\s*)(?:-\s*)?([A-Za-z0-9_-]+)\s*:\s*(.*)$/);
+  if (!match) {
+    return null;
+  }
+  return {
+    indent: match[1].length,
+    key: match[2],
+    value: match[3].trim().replace(/^['"]|['"]$/g, ""),
+  };
+}
+
 function fieldAtPath(root: SchemaField, path: string[]): SchemaField | null {
   let current: SchemaField = root;
   for (const key of path) {
@@ -302,6 +546,101 @@ function containerChildren(field: SchemaField): SchemaField[] {
     return containerChildren(field.mapValue);
   }
   return [];
+}
+
+function collectionValueField(field: SchemaField): SchemaField {
+  if ((field.type === "slice" || field.type === "array") && field.item) {
+    return field.item;
+  }
+  if (field.type === "map" && field.mapValue) {
+    return field.mapValue;
+  }
+  return field;
+}
+
+function documentContainerField(field: SchemaField): SchemaField {
+  if ((field.type === "slice" || field.type === "array" || field.type === "map") && containerChildren(field).length > 0) {
+    return collectionValueField(field);
+  }
+  if (containerChildren(field).length > 0) {
+    return field;
+  }
+  return field;
+}
+
+function collectionContainerPath(path: string[]): string[] {
+  return path.length > 0 ? path : [];
+}
+
+function nearestDocumentContainerPath(root: SchemaField, path: string[]): string[] {
+  for (let length = path.length; length >= 0; length--) {
+    const candidatePath = path.slice(0, length);
+    const candidate = fieldAtPath(root, candidatePath);
+    if (candidate && containerChildren(documentContainerField(candidate)).length > 0) {
+      return candidatePath;
+    }
+  }
+  return [];
+}
+
+function documentContainerFromPathKeys(root: SchemaField, path: string[]): SchemaField | null {
+  for (let index = path.length - 1; index >= 0; index--) {
+    const candidate = findNamedContainer(root, path[index]);
+    if (candidate) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function findNamedContainer(root: SchemaField, name: string): SchemaField | null {
+  const container = documentContainerField(root);
+  if (root.name === name && hasContainerChildren(container)) {
+    return container;
+  }
+  for (const child of containerChildren(root)) {
+    const matched = findNamedContainer(child, name);
+    if (matched) {
+      return matched;
+    }
+  }
+  return null;
+}
+
+function hasContainerChildren(field: SchemaField): boolean {
+  return containerChildren(documentContainerField(field)).length > 0;
+}
+
+function displayStructField(field: SchemaField, fallbackName = ""): SchemaField {
+  return {
+    ...field,
+    name: displayStructName(field.name || fallbackName),
+  };
+}
+
+function displayStructName(name: string): string {
+  const explicitNames: Record<string, string> = {
+    action: "Action",
+    common: "Common",
+    date: "Date",
+    dates: "Date",
+    doc: "Doc",
+    docs: "Doc",
+    file: "File",
+    scenario: "Scenario",
+    step: "Step",
+    steps: "Step",
+  };
+  const explicit = explicitNames[name];
+  if (explicit) {
+    return explicit;
+  }
+  const singular = name.endsWith("s") ? name.slice(0, -1) : name;
+  return singular
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("");
 }
 
 function searchSchema(root: SchemaField, query: string): SearchResult[] {

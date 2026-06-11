@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/mryskyj/yaml-editor/internal/completion"
 	filex "github.com/mryskyj/yaml-editor/internal/file"
@@ -105,8 +106,33 @@ func (a *App) CompleteYAML(content string, line int, column int) ([]completion.C
 	return completion.ProvideWithTools(content, line, column, root, a.toolSchemas()), nil
 }
 
-// Schema returns the registered root schema.
+// Schema returns schemas shown in the UI schema pane.
 func (a *App) Schema() (*schema.Field, error) {
+	toolSchemas := a.toolSchemas()
+	if len(toolSchemas) == 0 {
+		return &schema.Field{Name: "ToolSchemas", Type: schema.FieldTypeStruct}, nil
+	}
+
+	names := make([]string, 0, len(toolSchemas))
+	for name := range toolSchemas {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	children := make([]*schema.Field, 0, len(names))
+	for _, name := range names {
+		field := cloneSchemaField(toolSchemas[name])
+		if field == nil {
+			continue
+		}
+		field.Name = name
+		children = append(children, field)
+	}
+	return &schema.Field{Name: "ToolSchemas", Type: schema.FieldTypeStruct, Children: children}, nil
+}
+
+// RootSchema returns the registered YAML document schema for context-sensitive UI.
+func (a *App) RootSchema() (*schema.Field, error) {
 	return a.rootSchema()
 }
 
@@ -122,6 +148,26 @@ func (a *App) toolSchemas() map[string]*schema.Field {
 		return nil
 	}
 	return a.registry.ToolSchemas()
+}
+
+func cloneSchemaField(field *schema.Field) *schema.Field {
+	if field == nil {
+		return nil
+	}
+
+	clone := *field
+	if len(field.Enum) > 0 {
+		clone.Enum = append([]string(nil), field.Enum...)
+	}
+	if len(field.Children) > 0 {
+		clone.Children = make([]*schema.Field, 0, len(field.Children))
+		for _, child := range field.Children {
+			clone.Children = append(clone.Children, cloneSchemaField(child))
+		}
+	}
+	clone.Item = cloneSchemaField(field.Item)
+	clone.MapValue = cloneSchemaField(field.MapValue)
+	return &clone
 }
 
 func userConfigDir() string {

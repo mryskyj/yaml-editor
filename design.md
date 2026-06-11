@@ -133,13 +133,20 @@ Wailsから呼び出される公開APIを提供する。
 - 最近開いたファイルの取得
 - YAML本文の検証
 - カーソル位置に応じた補完候補の取得
-- 登録済みスキーマ情報の取得
+- 右ペイン表示用の参照用スキーマ情報の取得
 
 UI向けAPIは表示に必要なデータだけを返し、検証や補完の判断はバックエンド側で行う。
 
 組み込みRootスキーマのGo structは `app/rootschema` に配置し、`scenario.go` の `File` をYAML文書全体のroot schemaとして登録する。
-引数指定なしの起動では、このRootスキーマに沿って補完・検証・スキーマ表示を行う。
+引数指定なしの起動では、このRootスキーマに沿って補完・検証を行う。
 `app/sampleschema` は差し替えやtool / args連動スキーマの参照用サンプルとして残す。
+Schema paneにはRootスキーマを表示せず、参照用tool schemaを集約して表示する。
+引数指定なしの場合は `app/sampleschema`、`--schema-dir` 指定時は指定フォルダから登録したtool schemaを表示対象にする。
+Schema paneのCurrent表示は、通常はRootスキーマ上のカーソル位置に対応する構造体へ切り替える。
+`scenario:` では `Scenario`、`steps:` およびstep要素内では `Step`、`action:` および `action` 配下では `Action` のフィールド情報を表示する。
+`action.tool` 行では、tool名選択のため参照用tool schema一覧を表示する。
+`args` 内では同階層の `tool` 値に対応するschemaへ切り替える。
+tool schema自体がslice / arrayの場合は、Current表示では1要素分のschemaを表示する。
 
 ### Schema registry
 
@@ -196,7 +203,7 @@ type Server struct {
 ```
 
 この場合、内部スキーマでは `server` の子要素として `host` と `port` を保持する。
-Completion providerとSchema paneはこの解決済み内部スキーマを参照するため、ファイルをまたぐstruct依存も入力可能キーとして提示できる。
+Completion providerはこの解決済み内部スキーマを参照するため、ファイルをまたぐstruct依存も入力可能キーとして提示できる。
 
 対応型:
 
