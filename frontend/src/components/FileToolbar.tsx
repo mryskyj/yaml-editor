@@ -5,6 +5,7 @@ type FileToolbarProps = {
   recentFiles: string[];
   onNew: () => void;
   onOpen: (fileName: string, content: string) => void;
+  onOpenRecent: (path: string) => void;
   onSave: () => void;
   onSchedules: () => void;
   onCopy: () => void;
@@ -20,6 +21,7 @@ export function FileToolbar({
   recentFiles,
   onNew,
   onOpen,
+  onOpenRecent,
   onSave,
   onSchedules,
   onCopy,
@@ -31,6 +33,7 @@ export function FileToolbar({
 }: FileToolbarProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const lastOpenRequestIDRef = useRef(openRequestID);
+  const modifier = shortcutModifier();
 
   const handleOpen = () => {
     inputRef.current?.click();
@@ -57,19 +60,11 @@ export function FileToolbar({
 
   return (
     <header className="toolbar">
-      <button type="button" className="toolbar-button" onClick={onNew}>
-        New
-      </button>
-      <button type="button" className="toolbar-button" onClick={handleOpen}>
-        Open
-      </button>
-      <button type="button" className="toolbar-button" onClick={onSave}>
-        Save
-      </button>
-      <button type="button" className="toolbar-button" onClick={onSchedules}>
-        Schedules
-      </button>
-      <select className="recent-select" value="" onChange={(event) => event.target.value && handleOpen()}>
+      <ToolbarButton label="New" shortcut={`${modifier} + N`} onClick={onNew} />
+      <ToolbarButton label="Open" shortcut={`${modifier} + O`} onClick={handleOpen} />
+      <ToolbarButton label="Save" shortcut={`${modifier} + S`} onClick={onSave} variant="primary" />
+      <ToolbarButton label="Schedules" onClick={onSchedules} />
+      <select className="recent-select" value="" onChange={(event) => event.target.value && onOpenRecent(event.target.value)}>
         <option value="">Recent</option>
         {recentFiles.map((file) => (
           <option key={file} value={file}>
@@ -79,23 +74,46 @@ export function FileToolbar({
       </select>
       <span className="current-file">{currentFileName}</span>
       <span className="toolbar-separator" />
-      <button type="button" className="toolbar-button" onClick={onCopy}>
-        Copy
-      </button>
-      <button type="button" className="toolbar-button" onClick={onCut}>
-        Cut
-      </button>
-      <button type="button" className="toolbar-button" onClick={onPaste}>
-        Paste
-      </button>
+      <ToolbarButton label="Copy" shortcut={`${modifier} + C`} onClick={onCopy} />
+      <ToolbarButton label="Cut" shortcut={`${modifier} + X`} onClick={onCut} />
+      <ToolbarButton label="Paste" shortcut={`${modifier} + V`} onClick={onPaste} />
       <span className="toolbar-separator" />
-      <button type="button" className="toolbar-button" onClick={onUndo}>
-        Undo
-      </button>
-      <button type="button" className="toolbar-button" onClick={onRedo}>
-        Redo
-      </button>
+      <ToolbarButton label="Undo" shortcut={`${modifier} + Z`} onClick={onUndo} />
+      <ToolbarButton label="Redo" shortcut={`${modifier} + Shift + Z`} onClick={onRedo} />
       <input ref={inputRef} className="file-input" type="file" accept=".yaml,.yml,text/yaml,text/plain" onChange={handleFileChange} />
     </header>
   );
+}
+
+function ToolbarButton({
+  label,
+  onClick,
+  shortcut,
+  variant = "default",
+}: {
+  label: string;
+  onClick: () => void;
+  shortcut?: string;
+  variant?: "default" | "primary";
+}) {
+  const tooltip = shortcut ? `${label} (${shortcut})` : label;
+  const className = variant === "primary" ? "toolbar-button primary" : "toolbar-button";
+  return (
+    <button
+      type="button"
+      className={className}
+      data-tooltip={tooltip}
+      aria-label={tooltip}
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  );
+}
+
+function shortcutModifier(): string {
+  if (typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform)) {
+    return "Cmd";
+  }
+  return "Ctrl";
 }

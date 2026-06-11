@@ -11,8 +11,10 @@ import type * as Monaco from "monaco-editor";
 import {
 	chooseSavePath,
 	completeYAML,
+	loadRecentFiles,
 	loadRootSchema,
 	loadSchema,
+	openYAML,
 	saveYAML,
 	type CompletionCandidate,
 	validateYAML,
@@ -170,7 +172,7 @@ export function EditorShell() {
 	const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 	const scheduleTemplateRef = useRef(scheduleTemplate);
 	const [openRequestID, setOpenRequestID] = useState(0);
-	const [recentFiles, setRecentFiles] = useState<string[]>(["config.yaml"]);
+	const [recentFiles, setRecentFiles] = useState<string[]>([]);
 	const [schema, setSchema] = useState<SchemaField>(sampleSchema);
 	const [rootSchema, setRootSchema] = useState<SchemaField>(sampleRootSchema);
 	const currentTab = activeTab(tabState);
@@ -188,6 +190,10 @@ export function EditorShell() {
 		if (validationRequestRef.current === requestID) {
 			setTabState((state) => updateTabDiagnostics(state, tabID, nextDiagnostics));
 		}
+	}, []);
+
+	const refreshRecentFiles = useCallback(async () => {
+		setRecentFiles(await loadRecentFiles());
 	}, []);
 
 	const applyMarkers = useCallback((nextDiagnostics: EditorDiagnostic[]) => {
@@ -316,7 +322,8 @@ export function EditorShell() {
 				setRootSchema(loadedSchema);
 			}
 		});
-	}, []);
+		void refreshRecentFiles();
+	}, [refreshRecentFiles]);
 
 	useEffect(() => {
 		scheduleTemplateRef.current = scheduleTemplate;
@@ -380,8 +387,18 @@ export function EditorShell() {
 			name: fileName,
 			content: nextContent,
 		}));
-		setRecentFiles((files) => [fileName, ...files.filter((file) => file !== fileName)].slice(0, 5));
 	}, []);
+
+	const handleOpenRecent = useCallback(async (path: string) => {
+		try {
+			const document = await openYAML(path);
+			setTabState((state) => openDocumentTab(state, document));
+			await refreshRecentFiles();
+		} catch (error) {
+			window.alert(error instanceof Error ? error.message : "Open failed");
+			await refreshRecentFiles();
+		}
+	}, [refreshRecentFiles]);
 
 	const handleSave = useCallback(async () => {
 		try {
@@ -393,11 +410,11 @@ export function EditorShell() {
 
 			await saveYAML(path, tab.content);
 			setTabState((state) => markActiveTabSaved(state, path));
-			setRecentFiles((files) => [path, ...files.filter((file) => file !== path)].slice(0, 5));
+			await refreshRecentFiles();
 		} catch (error) {
 			window.alert(error instanceof Error ? error.message : "Save failed");
 		}
-	}, [tabState]);
+	}, [refreshRecentFiles, tabState]);
 
 	const handleCopy = useCallback(() => {
 		setContextMenu(null);
@@ -545,11 +562,12 @@ export function EditorShell() {
 	return (
 		<main className="app-shell">
 			<FileToolbar
-				currentFileName={currentTab.name}
-				recentFiles={recentFiles}
-				onNew={handleNew}
-				onOpen={handleOpen}
-				onSave={handleSave}
+					currentFileName={currentTab.name}
+					recentFiles={recentFiles}
+					onNew={handleNew}
+					onOpen={handleOpen}
+					onOpenRecent={handleOpenRecent}
+					onSave={handleSave}
 				onSchedules={() => setIsScheduleMenuOpen(true)}
 				onCopy={handleCopy}
 				onCut={handleCut}

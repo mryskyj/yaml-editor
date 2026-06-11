@@ -14,6 +14,12 @@ export type CompletionCandidate = {
 	mapValue?: CompletionCandidate;
 };
 
+export type YAMLDocument = {
+	path: string;
+	name: string;
+	content: string;
+};
+
 type RuntimeModule = {
 	Call?: {
 		ByName?: (methodName: string, ...args: unknown[]) => Promise<unknown>;
@@ -78,6 +84,19 @@ export async function saveYAML(path: string, content: string): Promise<void> {
 	await callRequiredBackend(`${serviceName}.SaveFile`, path, content);
 }
 
+export async function openYAML(path: string): Promise<YAMLDocument> {
+	const result = await callRequiredBackend(`${serviceName}.OpenFile`, path);
+	return normalizeDocument(result);
+}
+
+export async function loadRecentFiles(): Promise<string[]> {
+	const result = await callBackend(`${serviceName}.RecentFiles`);
+	if (!Array.isArray(result)) {
+		return [];
+	}
+	return result.map(String).filter((path) => path.trim() !== "");
+}
+
 export async function chooseSavePath(filename: string): Promise<string> {
 	const runtime = await loadRuntime();
 	if (!runtime?.Dialogs?.SaveFile) {
@@ -130,6 +149,20 @@ function normalizeDiagnostic(value: unknown): EditorDiagnostic {
 		line: numberValue(record.line ?? record.Line, 1),
 		column: numberValue(record.column ?? record.Column, 1),
 	};
+}
+
+function normalizeDocument(value: unknown): YAMLDocument {
+	const record = asRecord(value);
+	const path = String(record.path ?? record.Path ?? "");
+	return {
+		path,
+		name: filenameFromPath(path) || "untitled.yaml",
+		content: String(record.content ?? record.Content ?? ""),
+	};
+}
+
+function filenameFromPath(path: string): string {
+	return path.replace(/\\/g, "/").split("/").filter(Boolean).at(-1) ?? "";
 }
 
 function normalizeCandidate(value: unknown): CompletionCandidate {

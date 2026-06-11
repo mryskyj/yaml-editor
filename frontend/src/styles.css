@@ -35,29 +35,131 @@ button {
   padding: 0 12px;
   border-bottom: 1px solid #d9ddd2;
   background: #ffffff;
+  box-shadow: 0 1px 0 rgba(32, 35, 31, 0.04);
 }
 
 .toolbar-button {
-  height: 32px;
-  padding: 0 12px;
-  border: 1px solid #c7ccbf;
-  border-radius: 6px;
-  color: #20231f;
-  background: #fbfcf8;
-  cursor: pointer;
+	position: relative;
+	height: 32px;
+	padding: 0 12px;
+	border: 1px solid #c6ccbf;
+	border-radius: 6px;
+	color: #242821;
+	background: linear-gradient(#ffffff, #f7f8f5);
+	box-shadow:
+		0 1px 0 rgba(255, 255, 255, 0.86) inset,
+		0 1px 2px rgba(32, 35, 31, 0.08);
+	cursor: pointer;
+	font-size: 13px;
+	font-weight: 600;
+	transition:
+		background 120ms ease,
+		border-color 120ms ease,
+		box-shadow 120ms ease,
+		transform 120ms ease;
 }
 
-.toolbar-button:hover {
-	background: #eef4e7;
+.toolbar-button:hover,
+.toolbar-button:focus-visible {
+	border-color: #9fb08f;
+	background: linear-gradient(#ffffff, #edf4e8);
+	box-shadow:
+		0 1px 0 rgba(255, 255, 255, 0.9) inset,
+		0 3px 8px rgba(32, 35, 31, 0.12);
+	outline: 0;
+	transform: translateY(-1px);
+}
+
+.toolbar-button:active {
+	background: #e8eee1;
+	box-shadow: 0 1px 2px rgba(32, 35, 31, 0.12) inset;
+	transform: translateY(0);
+}
+
+.toolbar-button.primary {
+	color: #ffffff;
+	border-color: #3a6c57;
+	background: linear-gradient(#4f846d, #3d6f5a);
+	box-shadow:
+		0 1px 0 rgba(255, 255, 255, 0.18) inset,
+		0 2px 5px rgba(32, 35, 31, 0.16);
+}
+
+.toolbar-button.primary:hover,
+.toolbar-button.primary:focus-visible {
+	border-color: #2f604d;
+	background: linear-gradient(#5a9278, #3d6f5a);
+}
+
+.toolbar-button[data-tooltip]::after {
+	position: absolute;
+	top: calc(100% + 8px);
+	left: 50%;
+	z-index: 40;
+	max-width: 220px;
+	padding: 5px 8px;
+	border: 1px solid #2f342e;
+	border-radius: 5px;
+	color: #ffffff;
+	background: #2b302a;
+	box-shadow: 0 6px 16px rgba(32, 35, 31, 0.22);
+	content: attr(data-tooltip);
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1.2;
+	opacity: 0;
+	pointer-events: none;
+	text-align: center;
+	transform: translate(-50%, -2px);
+	transition:
+		opacity 120ms ease,
+		transform 120ms ease;
+	white-space: nowrap;
+}
+
+.toolbar-button[data-tooltip]::before {
+	position: absolute;
+	top: calc(100% + 3px);
+	left: 50%;
+	z-index: 41;
+	width: 8px;
+	height: 8px;
+	background: #2b302a;
+	content: "";
+	opacity: 0;
+	pointer-events: none;
+	transform: translateX(-50%) rotate(45deg);
+	transition: opacity 120ms ease;
+}
+
+.toolbar-button[data-tooltip]:hover::after,
+.toolbar-button[data-tooltip]:focus-visible::after,
+.toolbar-button[data-tooltip]:hover::before,
+.toolbar-button[data-tooltip]:focus-visible::before {
+	opacity: 1;
+}
+
+.toolbar-button[data-tooltip]:hover::after,
+.toolbar-button[data-tooltip]:focus-visible::after {
+	transform: translate(-50%, 0);
 }
 
 .recent-select {
 	height: 32px;
-	max-width: 160px;
-	border: 1px solid #c7ccbf;
+	max-width: 168px;
+	padding: 0 30px 0 10px;
+	border: 1px solid #c6ccbf;
 	border-radius: 6px;
-	color: #20231f;
+	color: #242821;
 	background: #fbfcf8;
+	box-shadow: 0 1px 2px rgba(32, 35, 31, 0.06);
+	font-size: 13px;
+}
+
+.recent-select:hover,
+.recent-select:focus {
+	border-color: #9fb08f;
+	outline: 0;
 }
 
 .current-file {

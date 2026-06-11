@@ -42,6 +42,7 @@ Backend
 - YAMLシンタックスハイライト
 - Monaco diagnosticsによる赤線表示
 - Monaco completion providerによる補完表示
+- Toolbarボタンはホバーまたはフォーカス時に対応ショートカットをツールチップ表示する
 
 ### バックエンド
 
@@ -136,6 +137,8 @@ Wailsから呼び出される公開APIを提供する。
 - 右ペイン表示用の参照用スキーマ情報の取得
 
 UI向けAPIは表示に必要なデータだけを返し、検証や補完の判断はバックエンド側で行う。
+フロントエンドのRecent表示は起動時にApp serviceの `RecentFiles` から読み込み、保存後やRecentから開いた後もバックエンドの履歴で更新する。
+Recent項目を選択した場合はApp serviceの `OpenFile` で保存済みパスを開く。
 
 組み込みRootスキーマのGo structは `app/rootschema` に配置し、`scenario.go` の `File` をYAML文書全体のroot schemaとして登録する。
 引数指定なしの起動では、このRootスキーマに沿って補完・検証を行う。
