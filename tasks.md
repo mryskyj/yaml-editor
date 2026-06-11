@@ -64,6 +64,8 @@
 - [x] dates holiday後の補完候補にschedulesを追加する
 - [x] 最近開いたファイルをバックエンドのRecentFilesから読み込む
 - [x] Toolbarボタンのショートカット表示と見た目を改善する
+- [x] ドキュメントと実装の差分を確認し、古い記述を更新する
+- [x] 実装済みの改善候補を整理して削除する
 
 ---
 
@@ -72,7 +74,7 @@
 以下はMVP完了後に優先して検討する改善候補とする。
 実施する場合は、この一覧から対象を1つ選び、通常のタスクと同じく設計確認、テスト追加、実装、テスト実行、完了状態更新の順で進める。
 
-- [ ] YAMLファイルを開いたタブにファイルパスを保持し、保存時に不要な保存先選択を発生させない
+- [ ] OSファイル選択で開いたYAMLファイルの実パスをタブに保持し、保存時に不要な保存先選択を発生させない
 - [ ] Wails APIやスキーマ読み込みに失敗した場合、空結果として扱わずUIでエラー状態を表示する
 - [ ] Completion providerの階層推定を単純なインデント推定からYAML ASTと位置情報を使う方式へ改善する
 - [ ] Monaco diagnosticsの赤線範囲を診断の開始位置と終了位置に合わせる
@@ -109,7 +111,8 @@
 ### Struct parserを実装する
 
 - `reflect` でGo structを `schema.Field` に変換する `schema.Parse` を追加した
-- `yaml`, `required`, `desc`, `default`, `enum` タグ解析を追加した
+- `yaml`, `desc`, `default`, `enum` タグ解析を追加した
+- `yaml` タグの `omitempty` に基づく必須/任意判定を追加した
 - struct / slice / array / map / string / bool / int系 / float系に対応した
 - `yaml:"-"` と未exported fieldを除外した
 - `yaml` タグがないフィールドを除外し、JSON/XML専用フィールドを解析対象外にした
@@ -130,7 +133,8 @@
 - `go/parser` で指定フォルダ直下の `.go` ファイルを静的解析する `schema.ParseDir` を追加した
 - `*_test.go` を外部Goソース読み込み対象外にした
 - 複数ファイルに分かれた名前付きstruct参照を解決して内部スキーマへ展開するようにした
-- `yaml`, `required`, `desc`, `default`, `enum` タグ解析を外部Goソース読み込みにも追加した
+- `yaml`, `desc`, `default`, `enum` タグ解析を外部Goソース読み込みにも追加した
+- `yaml` タグの `omitempty` に基づく必須/任意判定を外部Goソース読み込みにも追加した
 - slice / array / map / string / bool / int系 / float系に対応した
 - import先パッケージ型、type alias、generic型、循環参照を明示エラーにした
 - `schema.Registry.RegisterFromDir` を追加した
