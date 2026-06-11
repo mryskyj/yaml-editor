@@ -1102,6 +1102,18 @@ async function toCompletionItem(
 	const range = completionRange(model, position, line, candidate);
 
 	if (isValue) {
+		if (isDayRefValueLine(line)) {
+			return {
+				label: candidate.description
+					? { label: candidate.name, description: candidate.description }
+					: candidate.name,
+				kind: monaco.languages.CompletionItemKind.Value,
+				insertText: candidate.name,
+				range,
+				documentation: candidate.description,
+			};
+		}
+
 		return {
 			label: candidate.name,
 			kind: monaco.languages.CompletionItemKind.Value,
@@ -1127,6 +1139,11 @@ async function toCompletionItem(
 		detail: completionDetail(candidate),
 		documentation: candidate.description,
 	};
+}
+
+function isDayRefValueLine(line: string): boolean {
+	const trimmed = line.trim().replace(/^- /, "");
+	return /^day_ref\s*:/.test(trimmed);
 }
 
 function completionRange(

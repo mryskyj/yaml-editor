@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/mryskyj/yaml-editor/internal/schema"
+	"gopkg.in/yaml.v3"
 )
 
 // Provide returns schema-aware YAML completion candidates at a cursor position.
@@ -34,6 +35,9 @@ func ProvideWithTools(source string, line int, column int, root *schema.Field, t
 		if valueField.Name == "tool" {
 			return toolCandidates(lineAt(lines, cursorIndex), column, toolSchemas)
 		}
+		if valueField.Name == "day_ref" {
+			return dayRefCandidates(source, valueField)
+		}
 		return enumCandidates(valueField)
 	}
 
@@ -47,6 +51,52 @@ func ProvideWithTools(source string, line int, column int, root *schema.Field, t
 	}
 
 	return candidates
+}
+
+func dayRefCandidates(source string, field *schema.Field) []Candidate {
+	var document yaml.Node
+	if err := yaml.Unmarshal([]byte(source), &document); err != nil || len(document.Content) == 0 {
+		return nil
+	}
+
+	dates := mappingValue(mappingValue(document.Content[0], "common"), "dates")
+	if dates == nil || dates.Kind != yaml.MappingNode {
+		return nil
+	}
+
+	candidates := make([]Candidate, 0, len(dates.Content)/2)
+	for index := 0; index+1 < len(dates.Content); index += 2 {
+		keyNode := dates.Content[index]
+		valueNode := dates.Content[index+1]
+		if keyNode.Kind != yaml.ScalarNode || keyNode.Value == "" {
+			continue
+		}
+
+		candidates = append(candidates, Candidate{
+			Name:        keyNode.Value,
+			Type:        field.Type,
+			Description: dateRefDescription(valueNode),
+			Required:    field.Required,
+			Default:     field.Default,
+			Enum:        field.Enum,
+		})
+	}
+	return candidates
+}
+
+func dateRefDescription(node *yaml.Node) string {
+	if node == nil || node.Kind != yaml.MappingNode {
+		return ""
+	}
+
+	parts := make([]string, 0, 2)
+	if date := mappingValue(node, "date"); date != nil && date.Kind == yaml.ScalarNode {
+		parts = append(parts, "date: "+date.Value)
+	}
+	if holiday := mappingValue(node, "holiday"); holiday != nil && holiday.Kind == yaml.ScalarNode {
+		parts = append(parts, "holiday: "+holiday.Value)
+	}
+	return strings.Join(parts, ", ")
 }
 
 func toolCandidates(line string, column int, toolSchemas map[string]*schema.Field) []Candidate {
@@ -419,6 +469,18 @@ func yamlContainerKey(line string) (string, bool) {
 		return "", false
 	}
 	return strings.TrimSpace(trimmed[:index]), true
+}
+
+func mappingValue(node *yaml.Node, key string) *yaml.Node {
+	if node == nil || node.Kind != yaml.MappingNode {
+		return nil
+	}
+	for index := 0; index+1 < len(node.Content); index += 2 {
+		if node.Content[index].Value == key {
+			return node.Content[index+1]
+		}
+	}
+	return nil
 }
 
 func indentation(line string) int {

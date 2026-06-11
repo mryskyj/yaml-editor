@@ -277,6 +277,53 @@ func TestProvideEnumValueCandidates(t *testing.T) {
 	}
 }
 
+func TestProvideDayRefValueCandidatesFromDates(t *testing.T) {
+	t.Parallel()
+
+	type root struct {
+		Common struct {
+			Dates map[string]struct {
+				Date    string `yaml:"date"`
+				Holiday bool   `yaml:"holiday"`
+			} `yaml:"dates"`
+		} `yaml:"common"`
+		Scenario struct {
+			Steps []struct {
+				DayRef string `yaml:"day_ref"`
+			} `yaml:"steps"`
+		} `yaml:"scenario"`
+	}
+	rootSchema, err := schema.Parse(root{})
+	if err != nil {
+		t.Fatalf("schema.Parse() returned error: %v", err)
+	}
+
+	source := `common:
+  dates:
+    day1:
+      date: "2026-03-01"
+      holiday: false
+    day2:
+      date: "2026-03-02"
+      holiday: true
+scenario:
+  steps:
+    - day_ref: 
+`
+	candidates := Provide(source, 11, 16, rootSchema)
+	names := candidateNames(candidates)
+	want := []string{"day1", "day2"}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("candidate names = %#v, want %#v", names, want)
+	}
+	if candidates[0].Description != "date: 2026-03-01, holiday: false" {
+		t.Fatalf("day1 Description = %q", candidates[0].Description)
+	}
+	if candidates[1].Description != "date: 2026-03-02, holiday: true" {
+		t.Fatalf("day2 Description = %q", candidates[1].Description)
+	}
+}
+
 func TestProvideNilSchema(t *testing.T) {
 	t.Parallel()
 

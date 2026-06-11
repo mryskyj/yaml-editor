@@ -62,6 +62,7 @@
 - [x] Rootスキーマの任意フィールドにomitemptyを明示する
 - [x] Schema paneのRequired/Optionを色分け表示する
 - [x] dates holiday後の補完候補にschedulesを追加する
+- [x] `scenario.steps[].day_ref` の動的day候補補完を実装する
 - [x] 最近開いたファイルをバックエンドのRecentFilesから読み込む
 - [x] Toolbarボタンのショートカット表示と見た目を改善する
 - [x] ドキュメントと実装の差分を確認し、古い記述を更新する

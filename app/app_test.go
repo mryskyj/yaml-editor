@@ -604,8 +604,8 @@ scenario:
   steps:
     - id: ""
       name: ""
-      day_ref: ""
-      schedule_ref: ""
+      day_ref: 
+      schedule_ref: 
       action:
         tool: ""
 `
