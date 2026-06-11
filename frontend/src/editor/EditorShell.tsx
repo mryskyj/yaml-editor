@@ -54,6 +54,7 @@ import {
 } from "./tabs";
 
 const scheduleTemplateStorageKey = "yaml-struct-editor.schedule-template";
+const emptyCursor = { line: 1, column: 1 };
 
 const sampleSchema: SchemaField = {
 	name: "Config",
@@ -185,9 +186,10 @@ export function EditorShell() {
 	const pendingCloseTab = pendingCloseTabID
 		? tabState.tabs.find((tab) => tab.id === pendingCloseTabID)
 		: undefined;
-	const content = currentTab.content;
-	const diagnostics = currentTab.diagnostics;
-	const cursor = currentTab.cursor;
+	const content = currentTab?.content ?? "";
+	const diagnostics = currentTab?.diagnostics ?? [];
+	const cursor = currentTab?.cursor ?? emptyCursor;
+	const hasOpenTab = currentTab !== undefined;
 
 	const runValidation = useCallback(async (tabID: string, nextContent: string, path: string) => {
 		const requestID = validationRequestRef.current + 1;
@@ -298,22 +300,30 @@ export function EditorShell() {
 			}
 		});
 		cursorPositionRef.current = editor.onDidChangeCursorPosition((event) => {
-			setTabState((state) => updateTabCursor(state, activeTab(state).id, {
-				line: event.position.lineNumber,
-				column: event.position.column,
-			}));
+			setTabState((state) => {
+				const tab = activeTab(state);
+				if (!tab) {
+					return state;
+				}
+				return updateTabCursor(state, tab.id, {
+					line: event.position.lineNumber,
+					column: event.position.column,
+				});
+			});
 		});
 		selectionKeyRef.current = editor.onKeyDown((event) => {
 			handleShiftArrowSelection(editor, monaco, event);
 		});
 		const position = editor.getPosition();
-		if (position) {
-			setTabState((state) => updateTabCursor(state, activeTab(state).id, {
+		if (position && currentTab) {
+			setTabState((state) => updateTabCursor(state, currentTab.id, {
 				line: position.lineNumber,
 				column: position.column,
 			}));
 		}
-		void runValidation(currentTab.id, editor.getValue(), currentTab.path);
+		if (currentTab) {
+			void runValidation(currentTab.id, editor.getValue(), currentTab.path);
+		}
 	};
 
 	useEffect(() => {
@@ -357,15 +367,18 @@ export function EditorShell() {
 	}, [scheduleTemplate]);
 
 	useEffect(() => {
-		activePathRef.current = currentTab.path;
-	}, [currentTab.path]);
+		activePathRef.current = currentTab?.path ?? "";
+	}, [currentTab?.path]);
 
 	useEffect(() => {
+		if (!currentTab) {
+			return;
+		}
 		const timerID = window.setTimeout(() => {
 			void runValidation(currentTab.id, content, currentTab.path);
 		}, 200);
 		return () => window.clearTimeout(timerID);
-	}, [content, currentTab.id, currentTab.path, runValidation]);
+	}, [content, currentTab, runValidation]);
 
 	useEffect(() => {
 		applyMarkers(diagnostics);
@@ -373,7 +386,8 @@ export function EditorShell() {
 
 	useEffect(() => {
 		const editor = editorRef.current;
-		if (!editor) {
+		if (!editor || !currentTab) {
+			restoredTabIDRef.current = null;
 			return;
 		}
 		if (restoredTabIDRef.current === currentTab.id) {
@@ -386,7 +400,7 @@ export function EditorShell() {
 			column: cursor.column,
 		});
 		editor.focus();
-	}, [currentTab.id, cursor.column, cursor.line]);
+	}, [currentTab, cursor.column, cursor.line]);
 
 	const handleSelectDiagnostic = (diagnostic: EditorDiagnostic) => {
 		const editor = editorRef.current;
@@ -460,6 +474,9 @@ export function EditorShell() {
 	const handleSave = useCallback(async () => {
 		try {
 			const tab = activeTab(tabState);
+			if (!tab) {
+				return;
+			}
 			const path = tab.path || (await chooseSavePath(tab.name));
 			if (!path) {
 				return;
@@ -523,11 +540,15 @@ export function EditorShell() {
 			return;
 		}
 
-		setTabState((state) => closeTab(state, tabID, newDocumentContent));
-	}, [newDocumentContent, tabState.tabs]);
+		setTabState((state) => closeTab(state, tabID));
+	}, [tabState.tabs]);
 
 	const handleCloseActiveTab = useCallback(() => {
-		handleCloseTab(activeTab(tabState).id);
+		const tab = activeTab(tabState);
+		if (!tab) {
+			return;
+		}
+		handleCloseTab(tab.id);
 	}, [handleCloseTab, tabState]);
 
 	const handleCancelCloseTab = useCallback(() => {
@@ -538,9 +559,9 @@ export function EditorShell() {
 		if (!pendingCloseTabID) {
 			return;
 		}
-		setTabState((state) => closeTab(state, pendingCloseTabID, newDocumentContent));
+		setTabState((state) => closeTab(state, pendingCloseTabID));
 		setPendingCloseTabID(null);
-	}, [newDocumentContent, pendingCloseTabID]);
+	}, [pendingCloseTabID]);
 
 	const handleSelectAdjacentTab = useCallback((direction: 1 | -1) => {
 		setTabState((state) => switchToAdjacentTab(state, direction));
@@ -619,7 +640,7 @@ export function EditorShell() {
 	return (
 		<main className="app-shell">
 			<FileToolbar
-					currentFileName={currentTab.name}
+					currentFileName={currentTab?.name ?? "No file"}
 					recentFiles={recentFiles}
 					onNew={handleNew}
 					onOpen={handleOpen}
@@ -662,6 +683,7 @@ export function EditorShell() {
 							wordWrap: "on",
 							wordBasedSuggestions: "off",
 							contextmenu: false,
+							readOnly: !hasOpenTab,
 						}}
 						value={content}
 					/>

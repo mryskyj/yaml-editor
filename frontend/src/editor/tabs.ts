@@ -37,7 +37,7 @@ export function createInitialTabState(content = ""): TabState {
 	};
 }
 
-export function activeTab(state: TabState): DocumentTab {
+export function activeTab(state: TabState): DocumentTab | undefined {
 	return state.tabs.find((tab) => tab.id === state.activeTabID) ?? state.tabs[0];
 }
 
@@ -155,7 +155,7 @@ export function switchToAdjacentTab(state: TabState, direction: 1 | -1): TabStat
 	};
 }
 
-export function closeTab(state: TabState, tabID: string, fallbackContent = ""): TabState {
+export function closeTab(state: TabState, tabID: string): TabState {
 	const tabIndex = state.tabs.findIndex((tab) => tab.id === tabID);
 	if (tabIndex < 0) {
 		return state;
@@ -163,7 +163,11 @@ export function closeTab(state: TabState, tabID: string, fallbackContent = ""): 
 
 	const tabs = state.tabs.filter((tab) => tab.id !== tabID);
 	if (tabs.length === 0) {
-		return createInitialTabState(fallbackContent);
+		return {
+			...state,
+			tabs: [],
+			activeTabID: "",
+		};
 	}
 	if (state.activeTabID !== tabID) {
 		return { ...state, tabs };

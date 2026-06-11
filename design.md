@@ -151,6 +151,9 @@ App serviceの `ScheduleTemplate` は `common.schedules` のdefaultsを返し、
 Recent項目を選択した場合はApp serviceの `OpenFile` で保存済みパスを開く。
 ToolbarのOpen操作もWailsのOSファイル選択ダイアログで実ファイルパスを取得し、App serviceの `OpenFile` で開く。
 ブラウザ開発時などWailsのOpen dialogが利用できない場合のみHTML file inputへフォールバックするが、この場合はブラウザ仕様上フルパスを保持できないため、保存するまで相対includeは解決できない。
+File tabsは0件状態を許可する。
+最後のタブを閉じた場合、空の未保存タブを自動作成せず、Editor表示・診断・Current schema contextを空状態へ切り替える。
+タブ0件状態でもNewとOpenは利用でき、新規作成またはファイルを開いた時点で新しいアクティブタブを作成する。
 
 組み込みRootスキーマのGo structは `app/rootschema` に配置し、`scenario.go` の `File` をYAML文書全体のroot schemaとして登録する。
 引数指定なしの起動では、このRootスキーマに沿って補完・検証を行う。
