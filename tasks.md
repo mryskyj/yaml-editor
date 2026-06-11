@@ -61,6 +61,7 @@
 - [x] Schema paneのRequired/Optionをyaml omitemptyベースに変更する
 - [x] Rootスキーマの任意フィールドにomitemptyを明示する
 - [x] Schema paneのRequired/Optionを色分け表示する
+- [x] dates holiday後の補完候補にschedulesを追加する
 
 ---
 

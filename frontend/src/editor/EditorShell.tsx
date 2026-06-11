@@ -23,7 +23,7 @@ import { FileTabs } from "../components/FileTabs";
 import { FileToolbar } from "../components/FileToolbar";
 import { ScheduleMenu } from "../components/ScheduleMenu";
 import { SchemaPane, type SchemaField } from "../components/SchemaPane";
-import { dateNextBlockCompletion, dateTemplateInsertion } from "./dateTemplates";
+import { dateNextBlockCompletion, dateTemplateInsertion, datesSiblingIndent } from "./dateTemplates";
 import { listNextItemCompletion, listNextItemCompletions } from "./listTemplates";
 import {
 	defaultScheduleTemplate,
@@ -246,7 +246,7 @@ export function EditorShell() {
 					.map((candidate) => toCompletionItem(monaco, model, position, candidate)));
 				return {
 					suggestions: suggestions
-						.concat(dateBlockCompletionItem(monaco, model, position))
+						.concat(dateBlockCompletionItems(monaco, model, position, scheduleTemplateRef.current))
 						.concat(listItemCompletionItem(monaco, model, position)),
 				};
 			},
@@ -902,13 +902,16 @@ function hasListItemCompletion(editor: Monaco.editor.IStandaloneCodeEditor): boo
 	return listNextItemCompletion(model.getValue().split(/\r?\n/), position.lineNumber) !== null;
 }
 
-function dateBlockCompletionItem(
+function dateBlockCompletionItems(
 	monaco: typeof Monaco,
 	model: Monaco.editor.ITextModel,
 	position: Monaco.Position,
+	scheduleTemplate: string,
 ): Monaco.languages.CompletionItem[] {
-	const insertion = dateNextBlockCompletion(model.getValue().split(/\r?\n/), position.lineNumber);
-	if (!insertion) {
+	const lines = model.getValue().split(/\r?\n/);
+	const insertion = dateNextBlockCompletion(lines, position.lineNumber);
+	const scheduleInsertion = scheduleSiblingCompletionText(lines, position.lineNumber, scheduleTemplate);
+	if (!insertion && !scheduleInsertion) {
 		return [];
 	}
 
@@ -918,17 +921,72 @@ function dateBlockCompletionItem(
 		startColumn: 1,
 		endColumn: model.getLineMaxColumn(position.lineNumber),
 	};
-	const label = insertion.text.trimStart().split(":")[0] || "next day";
-	return [{
-		label,
-		kind: monaco.languages.CompletionItemKind.Snippet,
-		insertText: `${insertion.text}$0`,
-		insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-		range,
-		detail: "date block | optional",
-		documentation: "Insert the next day block.",
-		sortText: "0000",
-	}];
+	const items: Monaco.languages.CompletionItem[] = [];
+	if (insertion) {
+		const label = insertion.text.trimStart().split(":")[0] || "next day";
+		items.push({
+			label,
+			kind: monaco.languages.CompletionItemKind.Snippet,
+			insertText: `${insertion.text}$0`,
+			insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+			range,
+			detail: "date block | optional",
+			documentation: "Insert the next day block.",
+			sortText: "0000",
+		});
+	}
+	if (scheduleInsertion) {
+		items.push({
+			label: "schedules",
+			kind: monaco.languages.CompletionItemKind.Snippet,
+			insertText: `${scheduleInsertion}$0`,
+			insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+			range,
+			detail: "schedule block | optional",
+			documentation: "Insert schedules block and configured schedule entries.",
+			sortText: "0001",
+		});
+	}
+	return items;
+}
+
+function scheduleSiblingCompletionText(
+	lines: string[],
+	lineNumber: number,
+	scheduleTemplate: string,
+): string | null {
+	const indent = datesSiblingIndent(lines, lineNumber);
+	if (indent === null || hasSiblingSchedules(lines, lineNumber, indent.length)) {
+		return null;
+	}
+
+	const childIndent = `${indent}    `;
+	const entries = sanitizeScheduleTemplate(scheduleTemplate)
+		.split("\n")
+		.filter((line) => line.trim() !== "")
+		.map((line) => `${childIndent}${line}`)
+		.join("\n");
+	if (entries === "") {
+		return `${indent}schedules:`;
+	}
+	return `${indent}schedules:\n${entries}`;
+}
+
+function hasSiblingSchedules(lines: string[], lineNumber: number, indentLength: number): boolean {
+	for (let index = lineNumber - 1; index < lines.length; index++) {
+		const line = lines[index] ?? "";
+		if (line.trim() === "") {
+			continue;
+		}
+		const lineIndent = line.match(/^\s*/)?.[0].length ?? 0;
+		if (lineIndent < indentLength) {
+			return false;
+		}
+		if (lineIndent === indentLength && line.trim() === "schedules:") {
+			return true;
+		}
+	}
+	return false;
 }
 
 function listItemCompletionItem(

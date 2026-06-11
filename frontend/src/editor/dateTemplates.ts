@@ -60,6 +60,31 @@ export function dateNextBlockCompletion(lines: string[], lineNumber: number): Da
 	);
 }
 
+export function datesSiblingIndent(lines: string[], lineNumber: number): string | null {
+	const currentIndex = lineNumber - 1;
+	const previousIndex = currentIndex - 1;
+	if (previousIndex < 0 || currentIndex >= lines.length) {
+		return null;
+	}
+
+	const currentLine = lines[currentIndex] ?? "";
+	if (currentLine.trim() !== "") {
+		return null;
+	}
+
+	const previousLine = lines[previousIndex] ?? "";
+	if (!holidayPattern.test(previousLine.trim())) {
+		return null;
+	}
+
+	const dayContext = findDateDayContext(lines, previousIndex);
+	if (!dayContext) {
+		return null;
+	}
+
+	return parentDatesIndent(lines, previousIndex, dayContext.dayIndent.length);
+}
+
 function dateBlockInsertion(indent: string, dayNumber: number, date: string): DateTemplateInsertion {
 	const childIndent = `${indent}    `;
 	return {
@@ -128,6 +153,25 @@ function isUnderDates(lines: string[], dayIndex: number, dayIndentLength: number
 		return line.trim() === "dates:";
 	}
 	return false;
+}
+
+function parentDatesIndent(lines: string[], fromIndex: number, dayIndentLength: number): string | null {
+	for (let index = fromIndex; index >= 0; index--) {
+		const line = lines[index] ?? "";
+		if (line.trim() === "") {
+			continue;
+		}
+
+		const indentLength = indentationLength(line);
+		if (indentLength >= dayIndentLength) {
+			continue;
+		}
+		if (line.trim() !== "dates:") {
+			return null;
+		}
+		return leadingWhitespace(line);
+	}
+	return null;
 }
 
 function hasNextDay(lines: string[], currentIndex: number, dayIndent: string): boolean {

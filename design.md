@@ -374,7 +374,7 @@ slice / array は現在パスの解決時に `Item` のschemaへ降り、`scenar
 Monaco Editorの改行入力イベントでは、以下の自動入力を行う。
 
 - `dates:` の直後で改行した場合、現在の空行に `day1`, `date`, `holiday` のブロックを挿入する
-- `dayN.holiday` に `true` または `false` が入力された行で改行した場合、次の空行で `dayN+1`, `date`, `holiday` のブロックを補完候補として表示する
+- `dayN.holiday` に `true` または `false` が入力された行で改行した場合、次の空行で `dayN+1`, `date`, `holiday` のブロックと、`dates` と同階層の `schedules` ブロックを補完候補として表示する
 - ユーザーが補完候補を確定した場合のみ `dayN+1` ブロックを挿入する
 - 直前の `dayN.date` が `YYYY-MM-DD` 形式の場合、補完候補の `date` にはUTC基準で翌日の日付文字列を入れる
 - 既に次の `dayN` が存在する場合は候補を表示しない

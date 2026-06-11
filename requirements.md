@@ -284,7 +284,7 @@ slice / array のリスト要素配下では、要素structのキーを候補と
 
 組み込みRootスキーマの `common.dates` では、日付エントリを `day1`, `day2` のように連番キーで表す。
 `dates:` で改行した場合は、`day1` とその配下の `date`, `holiday` を自動入力する。
-`dayN.holiday` に `true` または `false` を入力して改行した場合は、次の `dayN+1` とその配下の `date`, `holiday` を補完候補として表示する。
+`dayN.holiday` に `true` または `false` を入力して改行した場合は、次の `dayN+1` とその配下の `date`, `holiday`、および `dates` と同階層の `schedules` ブロックを補完候補として表示する。
 ユーザーが候補を確定した場合のみ `dayN+1` ブロックを挿入する。
 直前の `dayN.date` が `YYYY-MM-DD` 形式の場合、補完候補の `date` には翌日を設定する。
 自動入力された `day1` ブロックは1回のUndoで取り消せる。
