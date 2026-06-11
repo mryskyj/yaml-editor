@@ -135,8 +135,8 @@ const sampleRootSchema: SchemaField = {
 						children: [
 							{ name: "id", type: "string", required: true },
 							{ name: "name", type: "string", required: true },
-							{ name: "day_ref", type: "string", required: true },
-							{ name: "schedule_ref", type: "string", required: true },
+							{ name: "day_ref", type: "string", required: false },
+							{ name: "schedule_ref", type: "string", required: false },
 							{
 								name: "action",
 								type: "struct",

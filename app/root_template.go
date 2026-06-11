@@ -156,9 +156,6 @@ func scalarTemplateValue(field *schema.Field, defaultNode *yaml.Node) string {
 
 	switch field.Type {
 	case schema.FieldTypeString:
-		if field.Name == "day_ref" || field.Name == "schedule_ref" {
-			return ""
-		}
 		return strconv.Quote("")
 	case schema.FieldTypeBool:
 		return "false"

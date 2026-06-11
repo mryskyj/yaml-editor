@@ -79,6 +79,14 @@ func TestAppRootSchemaReturnsDocumentSchema(t *testing.T) {
 	if !steps.Required {
 		t.Fatal("scenario.steps Required = false, want true")
 	}
+	dayRef := mustSchemaChild(t, steps.Item, "day_ref")
+	if dayRef.Required {
+		t.Fatal("step.day_ref Required = true, want false")
+	}
+	scheduleRef := mustSchemaChild(t, steps.Item, "schedule_ref")
+	if scheduleRef.Required {
+		t.Fatal("step.schedule_ref Required = true, want false")
+	}
 	action := mustSchemaChild(t, steps.Item, "action")
 	args := mustSchemaChild(t, action, "args")
 	if args.Required {
@@ -557,7 +565,7 @@ func TestAppFileOperations(t *testing.T) {
 	if document.Content != requiredRootTemplate {
 		t.Fatalf("NewDocument().Content =\n%s\nwant:\n%s", document.Content, requiredRootTemplate)
 	}
-	if containsAny(document.Content, "description:", "docs:", "user:", "password:", "path:", "args:") {
+	if containsAny(document.Content, "description:", "docs:", "day_ref:", "schedule_ref:", "user:", "password:", "path:", "args:") {
 		t.Fatalf("NewDocument().Content includes optional key:\n%s", document.Content)
 	}
 	if got := app.ScheduleTemplate(); got != defaultScheduleTemplate {
@@ -604,8 +612,6 @@ scenario:
   steps:
     - id: ""
       name: ""
-      day_ref: 
-      schedule_ref: 
       action:
         tool: ""
 `

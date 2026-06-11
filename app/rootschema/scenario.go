@@ -19,9 +19,9 @@ type Doc struct {
 type Step struct {
 	ID          string `yaml:"id"`
 	Name        string `yaml:"name"`
-	DayRef      string `yaml:"day_ref"`
+	DayRef      string `yaml:"day_ref,omitempty"`
 	Date        Date   `yaml:"-"`
-	ScheduleRef string `yaml:"schedule_ref"`
+	ScheduleRef string `yaml:"schedule_ref,omitempty"`
 	Schedule    int    `yaml:"-"`
 	Action      Action `yaml:"action"`
 }
