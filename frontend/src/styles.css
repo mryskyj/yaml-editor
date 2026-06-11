@@ -655,6 +655,7 @@ button {
 	padding: 12px;
 	border-top: 1px solid #d9ddd2;
 	background: #ffffff;
+	user-select: text;
 }
 
 .error-list-header {
@@ -689,10 +690,17 @@ button {
 	background: transparent;
 	text-align: left;
 	cursor: pointer;
+	user-select: text;
 }
 
-.error-item:hover {
+.error-item:hover,
+.error-item:focus-visible {
 	background: #f4e8e8;
+}
+
+.error-item:focus-visible {
+	outline: 1px solid #9b2f2f;
+	outline-offset: -1px;
 }
 
 .error-location {
@@ -701,6 +709,7 @@ button {
 	font-family: Menlo, Monaco, Consolas, monospace;
 	font-size: 12px;
 	line-height: 1.4;
+	user-select: text;
 }
 
 .error-message {
@@ -708,6 +717,7 @@ button {
 	line-height: 1.4;
 	overflow-wrap: anywhere;
 	white-space: normal;
+	user-select: text;
 }
 
 @media (max-width: 760px) {

@@ -130,6 +130,8 @@ type Server struct {
 
 `common.schedules` では、`schedules:` の直後で改行すると登録済みの `runN` テンプレートを自動入力します。
 テンプレートはToolbarの `Schedules` メニューから変更できます。
+`common` は同一ファイル内にインライン定義するほか、`common: !include "../common/common.yaml"` として外部ファイル参照できます。
+include先には `common:` 自体を書かず、`schema_version`, `dates`, `schedules` などCommonの中身だけを書きます。
 
 `scenario.steps` では、`steps:` の直後で改行すると最初のstepリスト要素を自動入力します。
 テンプレートは必須キーの `id`, `name`, `action.tool` までを含みます。

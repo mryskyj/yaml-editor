@@ -66,8 +66,11 @@
 - [x] step内のキー補完で次step追加候補を非表示にする
 - [x] `scenario.steps[].day_ref` の動的day候補補完を実装する
 - [x] `scenario.steps[].schedule_ref` の動的schedule候補補完を実装する
+- [x] `common` のインライン定義とinclude定義を両対応する
 - [x] 最近開いたファイルをバックエンドのRecentFilesから読み込む
+- [x] Open操作で実ファイルパスを保持しcommon includeの相対解決に使う
 - [x] Toolbarボタンのショートカット表示と見た目を改善する
+- [x] エラー一覧の診断メッセージを範囲選択・コピー可能にする
 - [x] ドキュメントと実装の差分を確認し、古い記述を更新する
 - [x] 実装済みの改善候補を整理して削除する
 - [x] 起動時と新規作成時にRootスキーマの必須キーを初期YAMLとして補填する

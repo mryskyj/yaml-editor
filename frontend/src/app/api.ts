@@ -8,6 +8,7 @@ export type CompletionCandidate = {
 	required?: boolean;
 	default?: string;
 	enum?: string[];
+	insertText?: string;
 	root?: boolean;
 	children?: CompletionCandidate[];
 	item?: CompletionCandidate;
@@ -25,6 +26,7 @@ type RuntimeModule = {
 		ByName?: (methodName: string, ...args: unknown[]) => Promise<unknown>;
 	};
 	Dialogs?: {
+		OpenFile?: (options: OpenFileDialogOptions) => Promise<string | string[]>;
 		SaveFile?: (options: SaveFileDialogOptions) => Promise<string>;
 	};
 };
@@ -44,8 +46,20 @@ type SaveFileDialogOptions = {
 	}>;
 };
 
-export async function validateYAML(content: string): Promise<EditorDiagnostic[]> {
-	const result = await callBackend(`${serviceName}.ValidateYAML`, content);
+type OpenFileDialogOptions = {
+	Title?: string;
+	ButtonText?: string;
+	CanChooseFiles?: boolean;
+	CanChooseDirectories?: boolean;
+	AllowsMultipleSelection?: boolean;
+	Filters?: Array<{
+		DisplayName?: string;
+		Pattern?: string;
+	}>;
+};
+
+export async function validateYAML(content: string, path = ""): Promise<EditorDiagnostic[]> {
+	const result = await callBackend(`${serviceName}.ValidateYAMLForPath`, content, path);
 	if (!Array.isArray(result)) {
 		return [];
 	}
@@ -56,8 +70,9 @@ export async function completeYAML(
 	content: string,
 	line: number,
 	column: number,
+	path = "",
 ): Promise<CompletionCandidate[]> {
-	const result = await callBackend(`${serviceName}.CompleteYAML`, content, line, column);
+	const result = await callBackend(`${serviceName}.CompleteYAMLForPath`, content, line, column, path);
 	if (!Array.isArray(result)) {
 		return [];
 	}
@@ -97,6 +112,29 @@ export async function loadDefaultScheduleTemplate(): Promise<string> {
 export async function openYAML(path: string): Promise<YAMLDocument> {
 	const result = await callRequiredBackend(`${serviceName}.OpenFile`, path);
 	return normalizeDocument(result);
+}
+
+export async function chooseOpenPath(): Promise<string> {
+	const runtime = await loadRuntime();
+	if (!runtime?.Dialogs?.OpenFile) {
+		throw new Error("Wails open dialog is not available");
+	}
+
+	const result = await runtime.Dialogs.OpenFile({
+		Title: "Open YAML File",
+		ButtonText: "Open",
+		CanChooseFiles: true,
+		CanChooseDirectories: false,
+		AllowsMultipleSelection: false,
+		Filters: [
+			{ DisplayName: "YAML Files", Pattern: "*.yaml;*.yml" },
+			{ DisplayName: "All Files", Pattern: "*" },
+		],
+	});
+	if (Array.isArray(result)) {
+		return result[0] ?? "";
+	}
+	return result;
 }
 
 export async function loadRecentFiles(): Promise<string[]> {
@@ -184,6 +222,7 @@ function normalizeCandidate(value: unknown): CompletionCandidate {
 		required: Boolean(record.required ?? record.Required ?? false),
 		default: stringValue(record.default ?? record.Default),
 		enum: arrayValue(record.enum ?? record.Enum).map(String),
+		insertText: stringValue(record.insertText ?? record.InsertText),
 		root: Boolean(record.root ?? record.Root ?? false),
 		children: arrayValue(record.children ?? record.Children).map(normalizeCandidate),
 		item: optionalCandidate(record.item ?? record.Item),

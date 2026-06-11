@@ -361,6 +361,10 @@ func TestAppSchemaCommonDatesUseDayDateHolidayStructure(t *testing.T) {
 	if !ok {
 		t.Fatal("Schema() missing common field")
 	}
+	commonSchemaVersion := mustSchemaChild(t, common, "schema_version")
+	if commonSchemaVersion.Required {
+		t.Fatal("common.schema_version Required = true, want false")
+	}
 	dates, ok := common.FindChild("dates")
 	if !ok {
 		t.Fatal("Schema() missing common.dates field")
@@ -433,6 +437,196 @@ scenario:
 	}
 	if len(diagnostics) != 0 {
 		t.Fatalf("ValidateYAML() diagnostics = %#v, want none", diagnostics)
+	}
+}
+
+func TestAppValidateYAMLCommonInclude(t *testing.T) {
+	t.Parallel()
+
+	app := testApp(t)
+	dir := t.TempDir()
+	commonPath := filepath.Join(dir, "common", "common.yaml")
+	writeTextFile(t, commonPath, includeCommonYAML)
+	mainPath := filepath.Join(dir, "scenario", "config.yaml")
+
+	diagnostics, err := app.ValidateYAMLForPath(`
+schema_version: "1.0.0"
+common: !include "../common/common.yaml"
+scenario:
+  id: 1
+  name: test
+  steps: []
+`, mainPath)
+	if err != nil {
+		t.Fatalf("ValidateYAMLForPath() returned error: %v", err)
+	}
+	if len(diagnostics) != 0 {
+		t.Fatalf("ValidateYAMLForPath() diagnostics = %#v, want none", diagnostics)
+	}
+}
+
+func TestAppValidateYAMLCommonIncludeAcceptsWrappedCommon(t *testing.T) {
+	t.Parallel()
+
+	app := testApp(t)
+	dir := t.TempDir()
+	commonPath := filepath.Join(dir, "common.yaml")
+	writeTextFile(t, commonPath, `common:
+  dates:
+    day1:
+      date: "2026-03-01"
+      holiday: false
+  schedules:
+    run1: &run1 1 #BOD
+`)
+
+	diagnostics, err := app.ValidateYAMLForPath(`
+schema_version: "1.0.0"
+common: !include "common.yaml"
+scenario:
+  id: 1
+  name: test
+  steps: []
+`, filepath.Join(dir, "config.yaml"))
+	if err != nil {
+		t.Fatalf("ValidateYAMLForPath() returned error: %v", err)
+	}
+	if len(diagnostics) != 0 {
+		t.Fatalf("ValidateYAMLForPath() diagnostics = %#v, want none", diagnostics)
+	}
+}
+
+func TestAppValidateYAMLCommonIncludeDiagnostics(t *testing.T) {
+	t.Parallel()
+
+	app := testApp(t)
+	diagnostics, err := app.ValidateYAML(`
+schema_version: "1.0.0"
+common: !include "common.yaml"
+scenario:
+  id: 1
+  name: test
+  steps: []
+`)
+	if err != nil {
+		t.Fatalf("ValidateYAML() returned error: %v", err)
+	}
+	if len(diagnostics) == 0 || !strings.Contains(diagnostics[0].Message, "unsaved file") {
+		t.Fatalf("ValidateYAML() diagnostics = %#v, want unsaved include diagnostic", diagnostics)
+	}
+
+	diagnostics, err = app.ValidateYAMLForPath(`
+schema_version: "1.0.0"
+common: !include "../../common.yaml"
+scenario:
+  id: 1
+  name: test
+  steps: []
+`, filepath.Join(t.TempDir(), "scenario", "config.yaml"))
+	if err != nil {
+		t.Fatalf("ValidateYAMLForPath() returned error: %v", err)
+	}
+	if len(diagnostics) != 1 || !strings.Contains(diagnostics[0].Message, "cannot be read") {
+		t.Fatalf("ValidateYAMLForPath() diagnostics = %#v, want one include read diagnostic", diagnostics)
+	}
+
+	diagnostics, err = app.ValidateYAMLForPath(`
+schema_version: "1.0.0"
+common: !include "/tmp/common.yaml"
+scenario:
+  id: 1
+  name: test
+  steps: []
+`, filepath.Join(t.TempDir(), "config.yaml"))
+	if err != nil {
+		t.Fatalf("ValidateYAMLForPath() returned error: %v", err)
+	}
+	if len(diagnostics) == 0 || !strings.Contains(diagnostics[0].Message, "relative") {
+		t.Fatalf("ValidateYAMLForPath() diagnostics = %#v, want relative path diagnostic", diagnostics)
+	}
+
+	dir := t.TempDir()
+	writeTextFile(t, filepath.Join(dir, "common.yaml"), `dates: !include "dates.yaml"
+schedules: {}
+`)
+	diagnostics, err = app.ValidateYAMLForPath(`
+schema_version: "1.0.0"
+common: !include "common.yaml"
+scenario:
+  id: 1
+  name: test
+  steps: []
+`, filepath.Join(dir, "config.yaml"))
+	if err != nil {
+		t.Fatalf("ValidateYAMLForPath() returned error: %v", err)
+	}
+	if len(diagnostics) == 0 || !strings.Contains(diagnostics[0].Message, "nested !include") {
+		t.Fatalf("ValidateYAMLForPath() diagnostics = %#v, want nested include diagnostic", diagnostics)
+	}
+}
+
+func TestAppCompleteYAMLReferencesFromCommonInclude(t *testing.T) {
+	t.Parallel()
+
+	app := testApp(t)
+	dir := t.TempDir()
+	commonPath := filepath.Join(dir, "common", "common.yaml")
+	writeTextFile(t, commonPath, includeCommonYAML)
+	mainPath := filepath.Join(dir, "scenario", "config.yaml")
+	source := `
+schema_version: "1.0.0"
+common: !include "../common/common.yaml"
+scenario:
+  id: 1
+  name: test
+  steps:
+    - id: "101-02"
+      name: step
+      day_ref:
+      schedule_ref:
+      action:
+        tool: "gui.AddAccount"
+`
+
+	dayCandidates, err := app.CompleteYAMLForPath(source, 10, 16, mainPath)
+	if err != nil {
+		t.Fatalf("CompleteYAMLForPath() returned error: %v", err)
+	}
+	day1, ok := findCandidate(dayCandidates, "day1")
+	if !ok {
+		t.Fatalf("CompleteYAMLForPath() candidates = %#v, want day1", dayCandidates)
+	}
+	if !strings.Contains(day1.Description, "2026-03-01") || !strings.Contains(day1.Description, "holiday: false") {
+		t.Fatalf("day1.Description = %q, want date and holiday", day1.Description)
+	}
+
+	scheduleCandidates, err := app.CompleteYAMLForPath(source, 11, 21, mainPath)
+	if err != nil {
+		t.Fatalf("CompleteYAMLForPath() returned error: %v", err)
+	}
+	run2, ok := findCandidate(scheduleCandidates, "run2")
+	if !ok {
+		t.Fatalf("CompleteYAMLForPath() candidates = %#v, want run2", scheduleCandidates)
+	}
+	if !strings.Contains(run2.Description, "value: 2") || !strings.Contains(run2.Description, "deploy") {
+		t.Fatalf("run2.Description = %q, want value and comment", run2.Description)
+	}
+}
+
+func TestAppCompleteYAMLCommonIncludeValue(t *testing.T) {
+	t.Parallel()
+
+	app := testApp(t)
+	candidates, err := app.CompleteYAML("common: \n", 1, 9)
+	if err != nil {
+		t.Fatalf("CompleteYAML() returned error: %v", err)
+	}
+	candidate, ok := findCandidate(candidates, `!include ""`)
+	if !ok {
+		t.Fatalf("CompleteYAML() candidates = %#v, want !include", candidates)
+	}
+	if candidate.InsertText != `!include "$0"` {
+		t.Fatalf("InsertText = %q, want snippet include", candidate.InsertText)
 	}
 }
 
@@ -600,7 +794,6 @@ func TestAppFileOperations(t *testing.T) {
 
 const requiredRootTemplate = `schema_version: "1.0.0"
 common:
-  schema_version: "1.0.0"
   dates:
     day1:
       date: ""
@@ -663,10 +856,33 @@ func writeAppSourceFile(t *testing.T, dir string, name string, content string) {
 	}
 }
 
+func writeTextFile(t *testing.T, path string, content string) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("create directory: %v", err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+}
+
 func hasCandidate(candidates []completion.Candidate, name string) bool {
 	_, ok := findCandidate(candidates, name)
 	return ok
 }
+
+const includeCommonYAML = `dates:
+  day1:
+    date: "2026-03-01"
+    holiday: false
+  day2:
+    date: "2026-03-02"
+    holiday: true
+schedules:
+  run1: &run1 1 #BOD
+  run2: &run2 2 #deploy
+`
 
 func findCandidate(candidates []completion.Candidate, name string) (completion.Candidate, bool) {
 	for _, candidate := range candidates {

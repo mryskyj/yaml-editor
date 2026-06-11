@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/mryskyj/yaml-editor/internal/schema"
+	"github.com/mryskyj/yaml-editor/internal/yamlx"
 	"gopkg.in/yaml.v3"
 )
 
@@ -15,8 +16,18 @@ func Provide(source string, line int, column int, root *schema.Field) []Candidat
 
 // ProvideWithTools returns YAML completion candidates including tool-specific args schemas.
 func ProvideWithTools(source string, line int, column int, root *schema.Field, toolSchemas map[string]*schema.Field) []Candidate {
+	return ProvideWithToolsForPath(source, line, column, root, toolSchemas, "")
+}
+
+// ProvideWithToolsForPath returns candidates after resolving path-relative common includes.
+func ProvideWithToolsForPath(source string, line int, column int, root *schema.Field, toolSchemas map[string]*schema.Field, documentPath string) []Candidate {
 	if root == nil || line <= 0 {
 		return nil
+	}
+	document, _ := yamlx.ParseWithCommonInclude(source, documentPath)
+	var effectiveRoot *yaml.Node
+	if document != nil {
+		effectiveRoot = document.Content()
 	}
 
 	lines := strings.Split(source, "\n")
@@ -36,10 +47,13 @@ func ProvideWithTools(source string, line int, column int, root *schema.Field, t
 			return toolCandidates(lineAt(lines, cursorIndex), column, toolSchemas)
 		}
 		if valueField.Name == "day_ref" {
-			return dayRefCandidates(source, valueField)
+			return dayRefCandidates(effectiveRoot, valueField)
 		}
 		if valueField.Name == "schedule_ref" {
-			return scheduleRefCandidates(source, valueField)
+			return scheduleRefCandidates(effectiveRoot, valueField)
+		}
+		if valueField.Name == "common" {
+			return commonValueCandidates(valueField)
 		}
 		return enumCandidates(valueField)
 	}
@@ -56,13 +70,18 @@ func ProvideWithTools(source string, line int, column int, root *schema.Field, t
 	return candidates
 }
 
-func dayRefCandidates(source string, field *schema.Field) []Candidate {
-	var document yaml.Node
-	if err := yaml.Unmarshal([]byte(source), &document); err != nil || len(document.Content) == 0 {
-		return nil
-	}
+func commonValueCandidates(field *schema.Field) []Candidate {
+	return []Candidate{{
+		Name:        `!include ""`,
+		Type:        schema.FieldTypeString,
+		Description: "Reference an external Common YAML file with a relative path.",
+		Required:    field.Required,
+		InsertText:  `!include "$0"`,
+	}}
+}
 
-	dates := mappingValue(mappingValue(document.Content[0], "common"), "dates")
+func dayRefCandidates(root *yaml.Node, field *schema.Field) []Candidate {
+	dates := mappingValue(mappingValue(root, "common"), "dates")
 	if dates == nil || dates.Kind != yaml.MappingNode {
 		return nil
 	}
@@ -102,13 +121,8 @@ func dateRefDescription(node *yaml.Node) string {
 	return strings.Join(parts, ", ")
 }
 
-func scheduleRefCandidates(source string, field *schema.Field) []Candidate {
-	var document yaml.Node
-	if err := yaml.Unmarshal([]byte(source), &document); err != nil || len(document.Content) == 0 {
-		return nil
-	}
-
-	schedules := mappingValue(mappingValue(document.Content[0], "common"), "schedules")
+func scheduleRefCandidates(root *yaml.Node, field *schema.Field) []Candidate {
+	schedules := mappingValue(mappingValue(root, "common"), "schedules")
 	if schedules == nil || schedules.Kind != yaml.MappingNode {
 		return nil
 	}

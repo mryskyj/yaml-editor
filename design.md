@@ -42,6 +42,7 @@ Backend
 - YAMLシンタックスハイライト
 - Monaco diagnosticsによる赤線表示
 - Monaco completion providerによる補完表示
+- Error listは診断位置へのクリック移動と、行番号・メッセージ文字列の範囲選択およびコピーを両立する
 - Toolbarボタンはホバーまたはフォーカス時に対応ショートカットをツールチップ表示する
 
 ### バックエンド
@@ -140,12 +141,16 @@ UI向けAPIは表示に必要なデータだけを返し、検証や補完の判
 App serviceの `NewDocument` は登録済みRootスキーマから未保存ドキュメントの初期YAMLを生成する。
 初期YAMLには `Required` のキーだけを含め、`Option` のキーは省略する。
 Rootスキーマの初期値は `app/rootschema/defaults.yaml` に定義し、テンプレート生成時はRootスキーマの型・必須情報に沿ってdefaultsの値を反映する。
-Rootスキーマの初期YAMLでは `schema_version` に `1.0.0` を入れ、`common.dates` は `day1.date` と `day1.holiday` を展開し、`common.schedules` はdefaultsのscheduleテンプレートを展開する。
+Rootスキーマの初期YAMLではRoot `schema_version` に `1.0.0` を入れ、`common.dates` は `day1.date` と `day1.holiday` を展開し、`common.schedules` はdefaultsのscheduleテンプレートを展開する。
+`common.schema_version` は任意項目として扱い、初期YAMLとinclude先では必須にしない。
 `scenario.steps[].day_ref` と `schedule_ref` は任意キーとして扱い、初期YAMLでは省略する。
+初期YAMLの `common` はインライン定義として生成し、include定義はユーザーが明示的に選択する。
 App serviceの `ScheduleTemplate` は `common.schedules` のdefaultsを返し、フロントエンドのSchedulesメニューと自動入力の初期値に使う。
 フロントエンドに保存済みのSchedulesテンプレートがある場合は、起動時と新規作成時の初期YAMLにも同じテンプレートを反映し、`schedules:` 自動補填と表示内容を一致させる。
 フロントエンドのRecent表示は起動時にApp serviceの `RecentFiles` から読み込み、保存後やRecentから開いた後もバックエンドの履歴で更新する。
 Recent項目を選択した場合はApp serviceの `OpenFile` で保存済みパスを開く。
+ToolbarのOpen操作もWailsのOSファイル選択ダイアログで実ファイルパスを取得し、App serviceの `OpenFile` で開く。
+ブラウザ開発時などWailsのOpen dialogが利用できない場合のみHTML file inputへフォールバックするが、この場合はブラウザ仕様上フルパスを保持できないため、保存するまで相対includeは解決できない。
 
 組み込みRootスキーマのGo structは `app/rootschema` に配置し、`scenario.go` の `File` をYAML文書全体のroot schemaとして登録する。
 引数指定なしの起動では、このRootスキーマに沿って補完・検証を行う。
@@ -379,6 +384,15 @@ slice / array は現在パスの解決時に `Item` のschemaへ降り、`scenar
 
 組み込みRootスキーマの `common.dates` は `map[string]*Date` として扱い、YAML上では `day1`, `day2` のような連番キーを利用する。
 `Date` のYAML対象フィールドは `date` と `holiday` とする。
+
+`common` はインラインmap、または `common: !include "relative/path.yaml"` のscalar tagで表現できる。
+includeは `common` キーのみ対応する。
+include先は `common` の中身だけを書く形式と、トップレベルに `common:` を持つ形式の両方を受け付ける。
+includeパスは親YAMLファイルの保存場所からの相対パスとして解決する。
+未保存ファイル、実ファイルパスを保持していないタブ、絶対パス、存在しないファイル、include先のYAML構文エラー、include先のネストincludeは診断として扱う。
+ValidatorとCompletion providerは、includeされたCommon YAMLをインラインcommonと同じ内部表現として扱う。
+`day_ref` と `schedule_ref` の候補生成は、インラインcommonの場合は現在文書から、include commonの場合はinclude先YAMLから `dates` / `schedules` を取得する。
+親ファイル保存時にinclude先ファイルは保存しない。
 
 Monaco Editorの改行入力イベントでは、以下の自動入力を行う。
 

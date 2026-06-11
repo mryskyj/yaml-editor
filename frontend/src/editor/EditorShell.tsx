@@ -10,6 +10,7 @@ import {
 import type * as Monaco from "monaco-editor";
 import {
 	chooseSavePath,
+	chooseOpenPath,
 	completeYAML,
 	loadDefaultScheduleTemplate,
 	loadRecentFiles,
@@ -167,6 +168,7 @@ export function EditorShell() {
 	const restoredTabIDRef = useRef<string | null>(null);
 	const automaticEditRef = useRef(false);
 	const validationRequestRef = useRef(0);
+	const activePathRef = useRef("");
 	const [tabState, setTabState] = useState<TabState>(() => createInitialTabState());
 	const [pendingCloseTabID, setPendingCloseTabID] = useState<string | null>(null);
 	const [isScheduleMenuOpen, setIsScheduleMenuOpen] = useState(false);
@@ -187,10 +189,10 @@ export function EditorShell() {
 	const diagnostics = currentTab.diagnostics;
 	const cursor = currentTab.cursor;
 
-	const runValidation = useCallback(async (tabID: string, nextContent: string) => {
+	const runValidation = useCallback(async (tabID: string, nextContent: string, path: string) => {
 		const requestID = validationRequestRef.current + 1;
 		validationRequestRef.current = requestID;
-		const nextDiagnostics = await validateYAML(nextContent);
+		const nextDiagnostics = await validateYAML(nextContent, path);
 		if (validationRequestRef.current === requestID) {
 			setTabState((state) => updateTabDiagnostics(state, tabID, nextDiagnostics));
 		}
@@ -250,10 +252,18 @@ export function EditorShell() {
 					model.getValue(),
 					position.lineNumber,
 					position.column,
+					activePathRef.current,
 				);
 				const suggestions = await Promise.all(candidates
 					.filter((candidate) => candidate.name !== "")
-					.map((candidate, index) => toCompletionItem(monaco, model, position, candidate, index)));
+					.map((candidate, index) => toCompletionItem(
+						monaco,
+						model,
+						position,
+						candidate,
+						index,
+						activePathRef.current,
+					)));
 				return {
 					suggestions: suggestions
 						.concat(dateBlockCompletionItems(monaco, model, position, scheduleTemplateRef.current))
@@ -303,7 +313,7 @@ export function EditorShell() {
 				column: position.column,
 			}));
 		}
-		void runValidation(currentTab.id, editor.getValue());
+		void runValidation(currentTab.id, editor.getValue(), currentTab.path);
 	};
 
 	useEffect(() => {
@@ -347,11 +357,15 @@ export function EditorShell() {
 	}, [scheduleTemplate]);
 
 	useEffect(() => {
+		activePathRef.current = currentTab.path;
+	}, [currentTab.path]);
+
+	useEffect(() => {
 		const timerID = window.setTimeout(() => {
-			void runValidation(currentTab.id, content);
+			void runValidation(currentTab.id, content, currentTab.path);
 		}, 200);
 		return () => window.clearTimeout(timerID);
-	}, [content, currentTab.id, runValidation]);
+	}, [content, currentTab.id, currentTab.path, runValidation]);
 
 	useEffect(() => {
 		applyMarkers(diagnostics);
@@ -406,7 +420,26 @@ export function EditorShell() {
 		setOpenRequestID((requestID) => requestID + 1);
 	}, []);
 
-	const handleOpen = useCallback((fileName: string, nextContent: string) => {
+	const handleOpen = useCallback(async (): Promise<boolean> => {
+		try {
+			const path = await chooseOpenPath();
+			if (!path) {
+				return true;
+			}
+			const document = await openYAML(path);
+			setTabState((state) => openDocumentTab(state, document));
+			await refreshRecentFiles();
+			return true;
+		} catch (error) {
+			if (error instanceof Error && error.message.includes("open dialog is not available")) {
+				return false;
+			}
+			window.alert(error instanceof Error ? error.message : "Open failed");
+			return true;
+		}
+	}, [refreshRecentFiles]);
+
+	const handleOpenLocalFile = useCallback((fileName: string, nextContent: string) => {
 		setTabState((state) => openDocumentTab(state, {
 			name: fileName,
 			content: nextContent,
@@ -590,6 +623,7 @@ export function EditorShell() {
 					recentFiles={recentFiles}
 					onNew={handleNew}
 					onOpen={handleOpen}
+					onOpenLocalFile={handleOpenLocalFile}
 					onOpenRecent={handleOpenRecent}
 					onSave={handleSave}
 				onSchedules={() => setIsScheduleMenuOpen(true)}
@@ -1154,6 +1188,7 @@ async function toCompletionItem(
 	position: Monaco.Position,
 	candidate: CompletionCandidate,
 	index = 0,
+	documentPath = "",
 ): Promise<Monaco.languages.CompletionItem> {
 	const line = model.getLineContent(position.lineNumber);
 	const isValue = line.lastIndexOf(":", position.column - 1) >= 0;
@@ -1173,13 +1208,14 @@ async function toCompletionItem(
 			};
 		}
 
+		const insertText = candidate.insertText ?? valueInsertText(line, position.column, candidate.name);
 		return {
 			label: candidate.name,
 			kind: monaco.languages.CompletionItemKind.Value,
-			insertText: valueInsertText(line, position.column, candidate.name),
-			insertTextRules: valueInsertTextRules(monaco, line, position.column, candidate.name),
+			insertText,
+			insertTextRules: valueInsertTextRules(monaco, line, position.column, candidate.name, insertText),
 			range,
-			additionalTextEdits: await toolArgsAdditionalTextEdits(model, position, line, candidate.name),
+			additionalTextEdits: await toolArgsAdditionalTextEdits(model, position, line, candidate.name, documentPath),
 			detail: completionDetail(candidate),
 			documentation: candidate.description,
 			sortText: `100${index + 1}`,
@@ -1276,7 +1312,11 @@ function valueInsertTextRules(
 	line: string,
 	column: number,
 	candidateName: string,
+	insertText: string,
 ): Monaco.languages.CompletionItemInsertTextRule | undefined {
+	if (insertText.includes("$0")) {
+		return monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet;
+	}
 	const toolContext = toolValueContext(line, column);
 	if (toolContext === null || !candidateName.endsWith(".") || toolContext.hasClosingQuoteAfterCursor) {
 		return undefined;
@@ -1293,6 +1333,7 @@ async function toolArgsAdditionalTextEdits(
 	position: Monaco.Position,
 	line: string,
 	candidateName: string,
+	documentPath: string,
 ): Promise<Monaco.editor.ISingleEditOperation[] | undefined> {
 	const toolContext = toolValueContext(line, position.column);
 	if (toolContext === null || candidateName.endsWith(".") || toolContext.packageName === "") {
@@ -1303,7 +1344,13 @@ async function toolArgsAdditionalTextEdits(
 	const argsIndent = " ".repeat(toolIndent);
 	const argsChildIndent = `${argsIndent}  `;
 	const completedToolName = `${toolContext.packageName}.${candidateName}`;
-	const argsFieldCandidates = await argsCandidatesForTool(model, position.lineNumber, toolIndent, completedToolName);
+	const argsFieldCandidates = await argsCandidatesForTool(
+		model,
+		position.lineNumber,
+		toolIndent,
+		completedToolName,
+		documentPath,
+	);
 	const argsLines = argsBlockLines(argsFieldCandidates, argsChildIndent);
 	const argsBlockText = `${argsIndent}args:\n${argsLines.join("\n")}`;
 
@@ -1331,6 +1378,7 @@ async function argsCandidatesForTool(
 	toolLineNumber: number,
 	toolIndent: number,
 	toolName: string,
+	documentPath: string,
 ): Promise<CompletionCandidate[]> {
 	const lines = model.getValue().split(/\r?\n/);
 	const argsIndent = " ".repeat(toolIndent);
@@ -1342,6 +1390,7 @@ async function argsCandidatesForTool(
 		lines.join("\n"),
 		toolLineNumber + 2,
 		argsChildIndent.length + 1,
+		documentPath,
 	);
 	return candidates.filter((candidate) => candidate.name !== "" || candidate.root === true);
 }

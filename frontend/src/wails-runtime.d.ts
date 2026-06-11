@@ -3,6 +3,17 @@ declare module "/wails/runtime.js" {
 		ByName: (methodName: string, ...args: unknown[]) => Promise<unknown>;
 	};
 	export const Dialogs: {
+		OpenFile: (options: {
+			Title?: string;
+			ButtonText?: string;
+			CanChooseFiles?: boolean;
+			CanChooseDirectories?: boolean;
+			AllowsMultipleSelection?: boolean;
+			Filters?: Array<{
+				DisplayName?: string;
+				Pattern?: string;
+			}>;
+		}) => Promise<string | string[]>;
 		SaveFile: (options: {
 			Title?: string;
 			Filename?: string;

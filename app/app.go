@@ -110,20 +110,30 @@ func (a *App) RecentFiles() ([]string, error) {
 
 // ValidateYAML validates YAML content against the registered schema.
 func (a *App) ValidateYAML(content string) ([]validator.Diagnostic, error) {
+	return a.ValidateYAMLForPath(content, "")
+}
+
+// ValidateYAMLForPath validates YAML content and resolves relative includes from the document path.
+func (a *App) ValidateYAMLForPath(content string, documentPath string) ([]validator.Diagnostic, error) {
 	root, err := a.rootSchema()
 	if err != nil {
 		return nil, err
 	}
-	return validator.ValidateWithTools(content, root, a.toolSchemas()), nil
+	return validator.ValidateWithToolsForPath(content, root, a.toolSchemas(), documentPath), nil
 }
 
 // CompleteYAML returns completion candidates for a cursor position.
 func (a *App) CompleteYAML(content string, line int, column int) ([]completion.Candidate, error) {
+	return a.CompleteYAMLForPath(content, line, column, "")
+}
+
+// CompleteYAMLForPath returns completion candidates and resolves relative includes from the document path.
+func (a *App) CompleteYAMLForPath(content string, line int, column int, documentPath string) ([]completion.Candidate, error) {
 	root, err := a.rootSchema()
 	if err != nil {
 		return nil, err
 	}
-	return completion.ProvideWithTools(content, line, column, root, a.toolSchemas()), nil
+	return completion.ProvideWithToolsForPath(content, line, column, root, a.toolSchemas(), documentPath), nil
 }
 
 // Schema returns schemas shown in the UI schema pane.

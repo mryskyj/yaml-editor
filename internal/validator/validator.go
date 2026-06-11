@@ -16,7 +16,12 @@ func Validate(source string, root *schema.Field) []Diagnostic {
 
 // ValidateWithTools parses YAML source and compares it with root plus tool-specific args schemas.
 func ValidateWithTools(source string, root *schema.Field, toolSchemas map[string]*schema.Field) []Diagnostic {
-	document, yamlDiagnostics := yamlx.Parse(source)
+	return ValidateWithToolsForPath(source, root, toolSchemas, "")
+}
+
+// ValidateWithToolsForPath parses YAML source and resolves path-relative common includes before validation.
+func ValidateWithToolsForPath(source string, root *schema.Field, toolSchemas map[string]*schema.Field, documentPath string) []Diagnostic {
+	document, yamlDiagnostics := yamlx.ParseWithCommonInclude(source, documentPath)
 	diagnostics := fromYAMLDiagnostics(yamlDiagnostics)
 	if document == nil {
 		return diagnostics
@@ -82,6 +87,10 @@ func validateStruct(node *yaml.Node, field *schema.Field, toolSchemas map[string
 				keyNode,
 				fmt.Sprintf("undefined key %q", keyNode.Value),
 			))
+			continue
+		}
+
+		if keyNode.Value == "common" && valueNode.Tag == "!include" {
 			continue
 		}
 

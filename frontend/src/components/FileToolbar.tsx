@@ -4,7 +4,8 @@ type FileToolbarProps = {
   currentFileName: string;
   recentFiles: string[];
   onNew: () => void;
-  onOpen: (fileName: string, content: string) => void;
+  onOpen: () => Promise<boolean>;
+  onOpenLocalFile: (fileName: string, content: string) => void;
   onOpenRecent: (path: string) => void;
   onSave: () => void;
   onSchedules: () => void;
@@ -21,6 +22,7 @@ export function FileToolbar({
   recentFiles,
   onNew,
   onOpen,
+  onOpenLocalFile,
   onOpenRecent,
   onSave,
   onSchedules,
@@ -36,7 +38,11 @@ export function FileToolbar({
   const modifier = shortcutModifier();
 
   const handleOpen = () => {
-    inputRef.current?.click();
+    void onOpen().then((handled) => {
+      if (!handled) {
+        inputRef.current?.click();
+      }
+    });
   };
 
   useEffect(() => {
@@ -54,7 +60,7 @@ export function FileToolbar({
     }
 
     const content = await file.text();
-    onOpen(file.name, content);
+    onOpenLocalFile(file.name, content);
     event.target.value = "";
   };
 
