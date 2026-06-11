@@ -449,6 +449,7 @@ button {
 	min-width: 0;
 }
 
+.schema-type,
 .schema-required,
 .schema-used {
 	padding: 2px 6px;
@@ -456,9 +457,21 @@ button {
 	font-size: 11px;
 }
 
-.schema-required {
-	color: #314323;
-	background: #e4efda;
+.schema-type {
+	color: #32536d;
+	background: #e1edf4;
+}
+
+.schema-required.is-required {
+	color: #7a241c;
+	background: #f7ded9;
+	border-color: #efb9af;
+}
+
+.schema-required.is-option {
+	color: #4d5561;
+	background: #eceff3;
+	border-color: #d5dae1;
 }
 
 .schema-used {

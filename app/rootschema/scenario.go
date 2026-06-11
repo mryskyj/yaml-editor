@@ -9,7 +9,7 @@ type Action struct {
 	User     string            `yaml:"user,omitempty"`
 	Password string            `yaml:"password,omitempty"`
 	Path     string            `yaml:"path,omitempty"`
-	Args     map[string]string `yaml:"args"`
+	Args     map[string]string `yaml:"args,omitempty"`
 }
 
 type Doc struct {
@@ -29,8 +29,8 @@ type Step struct {
 type Scenario struct {
 	ID          int    `yaml:"id"`
 	Name        string `yaml:"name"`
-	Description string `yaml:"description"`
-	Docs        []Doc  `yaml:"docs"`
+	Description string `yaml:"description,omitempty"`
+	Docs        []Doc  `yaml:"docs,omitempty"`
 	Steps       []Step `yaml:"steps"`
 }
 

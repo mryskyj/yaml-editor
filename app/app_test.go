@@ -64,6 +64,25 @@ func TestAppRootSchemaReturnsDocumentSchema(t *testing.T) {
 	if _, ok := root.FindChild("scenario"); !ok {
 		t.Fatal("RootSchema() missing scenario field")
 	}
+
+	scenario := mustSchemaChild(t, root, "scenario")
+	description := mustSchemaChild(t, scenario, "description")
+	if description.Required {
+		t.Fatal("scenario.description Required = true, want false")
+	}
+	docs := mustSchemaChild(t, scenario, "docs")
+	if docs.Required {
+		t.Fatal("scenario.docs Required = true, want false")
+	}
+	steps := mustSchemaChild(t, scenario, "steps")
+	if !steps.Required {
+		t.Fatal("scenario.steps Required = false, want true")
+	}
+	action := mustSchemaChild(t, steps.Item, "action")
+	args := mustSchemaChild(t, action, "args")
+	if args.Required {
+		t.Fatal("action.args Required = true, want false")
+	}
 }
 
 func TestAppValidateYAML(t *testing.T) {
@@ -566,6 +585,19 @@ func testApp(t *testing.T) *App {
 		filex.NewService(filex.NewRecentStore(recentPath, 10)),
 		schema.NewRegistry(),
 	)
+}
+
+func mustSchemaChild(t *testing.T, root *schema.Field, name string) *schema.Field {
+	t.Helper()
+
+	if root == nil {
+		t.Fatalf("FindChild(%q) on nil schema field", name)
+	}
+	child, ok := root.FindChild(name)
+	if !ok {
+		t.Fatalf("FindChild(%q) did not find child", name)
+	}
+	return child
 }
 
 func writeAppSourceFile(t *testing.T, dir string, name string, content string) {

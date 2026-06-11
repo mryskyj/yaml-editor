@@ -120,7 +120,7 @@ func yamlName(field reflect.StructField) (string, bool) {
 		return "", true
 	}
 
-	name := strings.TrimSpace(strings.Split(tag, ",")[0])
+	name := yamlTagName(tag)
 	if name == "-" {
 		return "", true
 	}
@@ -132,10 +132,24 @@ func yamlName(field reflect.StructField) (string, bool) {
 }
 
 func applyTags(field *Field, structField reflect.StructField) {
-	field.Required = structField.Tag.Get("required") == "true"
+	field.Required = !yamlTagHasOption(structField.Tag.Get("yaml"), "omitempty")
 	field.Description = structField.Tag.Get("desc")
 	field.Default = structField.Tag.Get("default")
 	field.Enum = splitCSVTag(structField.Tag.Get("enum"))
+}
+
+func yamlTagName(tag string) string {
+	return strings.TrimSpace(strings.Split(tag, ",")[0])
+}
+
+func yamlTagHasOption(tag string, option string) bool {
+	parts := strings.Split(tag, ",")
+	for _, part := range parts[1:] {
+		if strings.TrimSpace(part) == option {
+			return true
+		}
+	}
+	return false
 }
 
 func splitCSVTag(value string) []string {

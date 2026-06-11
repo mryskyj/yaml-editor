@@ -104,10 +104,10 @@ const sampleRootSchema: SchemaField = {
 		{
 			name: "scenario",
 			type: "struct",
-			required: false,
+			required: true,
 			children: [
-				{ name: "id", type: "int", required: false },
-				{ name: "name", type: "string", required: false },
+				{ name: "id", type: "int", required: true },
+				{ name: "name", type: "string", required: true },
 				{ name: "description", type: "string", required: false },
 				{
 					name: "docs",
@@ -116,27 +116,27 @@ const sampleRootSchema: SchemaField = {
 					item: {
 						name: "doc",
 						type: "struct",
-						required: false,
-						children: [{ name: "name", type: "string", required: false }],
+						required: true,
+						children: [{ name: "name", type: "string", required: true }],
 					},
 				},
 				{
 					name: "steps",
 					type: "slice",
-					required: false,
+					required: true,
 					item: {
 						name: "step",
 						type: "struct",
-						required: false,
+						required: true,
 						children: [
-							{ name: "id", type: "string", required: false },
-							{ name: "name", type: "string", required: false },
-							{ name: "day_ref", type: "string", required: false },
-							{ name: "schedule_ref", type: "string", required: false },
+							{ name: "id", type: "string", required: true },
+							{ name: "name", type: "string", required: true },
+							{ name: "day_ref", type: "string", required: true },
+							{ name: "schedule_ref", type: "string", required: true },
 							{
 								name: "action",
 								type: "struct",
-								required: false,
+								required: true,
 								children: [
 									{ name: "tool", type: "string", required: true },
 									{ name: "user", type: "string", required: false },

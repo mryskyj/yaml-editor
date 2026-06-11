@@ -85,6 +85,38 @@ type Server struct {
 	}
 }
 
+func TestParseDirSetsRequiredFromYAMLOmitEmpty(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeSourceFile(t, dir, "schema.go", `package sample
+
+type Config struct {
+	Name string `+"`yaml:\"name\"`"+`
+	Note string `+"`yaml:\"note,omitempty\"`"+`
+	Ignored string
+}
+`)
+
+	root, err := ParseDir(dir, "Config")
+	if err != nil {
+		t.Fatalf("ParseDir() returned error: %v", err)
+	}
+
+	name := mustChild(t, root, "name")
+	if !name.Required {
+		t.Fatal("name.Required = false, want true")
+	}
+
+	note := mustChild(t, root, "note")
+	if note.Required {
+		t.Fatal("note.Required = true, want false for yaml omitempty")
+	}
+	if _, ok := root.FindChild("Ignored"); ok {
+		t.Fatal("ParseDir() included field without yaml tag")
+	}
+}
+
 func TestParseDirParsesAlternateSampleWithoutConfigRoot(t *testing.T) {
 	t.Parallel()
 

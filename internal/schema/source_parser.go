@@ -507,7 +507,7 @@ func sourceYAMLName(field *ast.Field) (string, bool, error) {
 		return "", false, nil
 	}
 
-	name := strings.TrimSpace(strings.Split(tag, ",")[0])
+	name := yamlTagName(tag)
 	if name == "" || name == "-" {
 		return "", false, nil
 	}
@@ -525,7 +525,7 @@ func applySourceTags(field *Field, sourceField *ast.Field) {
 	}
 
 	tag := reflect.StructTag(tagValue)
-	field.Required = tag.Get("required") == "true"
+	field.Required = !yamlTagHasOption(tag.Get("yaml"), "omitempty")
 	field.Description = tag.Get("desc")
 	field.Default = tag.Get("default")
 	field.Enum = splitCSVTag(tag.Get("enum"))

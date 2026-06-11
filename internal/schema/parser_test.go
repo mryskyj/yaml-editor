@@ -7,7 +7,7 @@ import (
 
 type parserConfig struct {
 	Server parserServer `yaml:"server" required:"true" desc:"server settings"`
-	App    parserApp    `yaml:"app"`
+	App    parserApp    `yaml:"app,omitempty"`
 	Skip   string       `yaml:"-"`
 	JSON   parserJSON   `json:"json"`
 	XML    parserXML    `xml:"xml"`
@@ -69,6 +69,11 @@ func TestParseStructTagsAndChildren(t *testing.T) {
 	}
 	if server.Description != "server settings" {
 		t.Fatalf("server.Description = %q", server.Description)
+	}
+
+	app := mustChild(t, root, "app")
+	if app.Required {
+		t.Fatal("app.Required = true, want false for yaml omitempty")
 	}
 
 	host := mustChild(t, server, "host")

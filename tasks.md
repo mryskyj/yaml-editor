@@ -58,6 +58,9 @@
 - [x] Schema pane Currentのaction欄でActionフィールドを表示する不具合を修正する
 - [x] Schema pane CurrentのscenarioとstepsでRootスキーマ構造体を表示する
 - [x] Schema pane Currentのsteps表示名がrootになる不具合を修正する
+- [x] Schema paneのRequired/Optionをyaml omitemptyベースに変更する
+- [x] Rootスキーマの任意フィールドにomitemptyを明示する
+- [x] Schema paneのRequired/Optionを色分け表示する
 
 ---
 

@@ -102,7 +102,10 @@ function CurrentSchemaView({ context }: { context: SchemaContext }) {
               <div className={used ? "schema-candidate used" : "schema-candidate"} key={field.name}>
                 <div className="schema-candidate-main">
                   <span className="schema-key">{field.name}</span>
-                  <span className="schema-required">{field.required ? "required" : "optional"}</span>
+                  <span className="schema-type">{field.type}</span>
+                  <span className={requiredClassName(field)}>
+                    {field.required ? "Required" : "Option"}
+                  </span>
                   {used ? <span className="schema-used">used</span> : null}
                 </div>
                 {field.description ? (
@@ -167,12 +170,16 @@ function FieldSummary({ field, compact = false }: { field: SchemaField; compact?
       </div>
       <div className="schema-details">
         <span>{field.type}</span>
-        <span>{field.required ? "required" : "optional"}</span>
+        <span className={requiredClassName(field)}>{field.required ? "Required" : "Option"}</span>
         {field.default ? <span>default {field.default}</span> : null}
         {field.enum && field.enum.length > 0 ? <span>{field.enum.join(", ")}</span> : null}
       </div>
     </section>
   );
+}
+
+function requiredClassName(field: SchemaField): string {
+  return field.required ? "schema-required is-required" : "schema-required is-option";
 }
 
 function SchemaNode({ field, depth }: { field: SchemaField; depth: number }) {
