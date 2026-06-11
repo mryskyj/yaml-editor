@@ -29,9 +29,9 @@ export type OpenDocumentInput = {
 
 const emptyCursor = { line: 1, column: 1 };
 
-export function createInitialTabState(): TabState {
+export function createInitialTabState(content = ""): TabState {
 	return {
-		tabs: [createUntitledTab("tab-1", 1)],
+		tabs: [createUntitledTab("tab-1", 1, content)],
 		activeTabID: "tab-1",
 		nextUntitledIndex: 2,
 	};
@@ -56,10 +56,11 @@ export function closeConfirmationMessage(tab: DocumentTab): string {
 	return `${tab.name} に未保存の変更があります。保存せずに閉じますか？`;
 }
 
-export function addUntitledTab(state: TabState): TabState {
+export function addUntitledTab(state: TabState, content = ""): TabState {
 	const nextTab = createUntitledTab(
 		`tab-${Date.now()}-${state.nextUntitledIndex}`,
 		state.nextUntitledIndex,
+		content,
 	);
 
 	return {
@@ -67,6 +68,18 @@ export function addUntitledTab(state: TabState): TabState {
 		activeTabID: nextTab.id,
 		nextUntitledIndex: state.nextUntitledIndex + 1,
 	};
+}
+
+export function fillActiveUntouchedUntitledTab(state: TabState, content: string): TabState {
+	const tab = activeTab(state);
+	if (!tab || tab.path !== "" || tab.content !== "" || tab.savedContent !== "") {
+		return state;
+	}
+	return updateTab(state, tab.id, (current) => ({
+		...current,
+		content,
+		savedContent: content,
+	}));
 }
 
 export function openDocumentTab(state: TabState, input: OpenDocumentInput): TabState {
@@ -142,7 +155,7 @@ export function switchToAdjacentTab(state: TabState, direction: 1 | -1): TabStat
 	};
 }
 
-export function closeTab(state: TabState, tabID: string): TabState {
+export function closeTab(state: TabState, tabID: string, fallbackContent = ""): TabState {
 	const tabIndex = state.tabs.findIndex((tab) => tab.id === tabID);
 	if (tabIndex < 0) {
 		return state;
@@ -150,7 +163,7 @@ export function closeTab(state: TabState, tabID: string): TabState {
 
 	const tabs = state.tabs.filter((tab) => tab.id !== tabID);
 	if (tabs.length === 0) {
-		return createInitialTabState();
+		return createInitialTabState(fallbackContent);
 	}
 	if (state.activeTabID !== tabID) {
 		return { ...state, tabs };
@@ -170,14 +183,14 @@ export function fileNameFromPath(path: string): string | undefined {
 	return parts.at(-1);
 }
 
-function createUntitledTab(id: string, index: number): DocumentTab {
+function createUntitledTab(id: string, index: number, content: string): DocumentTab {
 	const name = index === 1 ? "untitled.yaml" : `untitled-${index}.yaml`;
 	return {
 		id,
 		path: "",
 		name,
-		content: "",
-		savedContent: "",
+		content,
+		savedContent: content,
 		cursor: emptyCursor,
 		diagnostics: [],
 	};

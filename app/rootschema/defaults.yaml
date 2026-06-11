@@ -1,0 +1,11 @@
+schema_version: "1.0.0"
+common:
+  schema_version: "1.0.0"
+  dates:
+    day1:
+      date: ""
+      holiday: false
+  schedules:
+    run1: &run1 1 #BOD
+    run2: &run2 2 #あいうえお
+    run3: &run3 3 #かきくけこ

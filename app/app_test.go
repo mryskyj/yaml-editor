@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/mryskyj/yaml-editor/internal/completion"
@@ -550,8 +551,17 @@ func TestAppFileOperations(t *testing.T) {
 
 	app := testApp(t)
 	document := app.NewDocument()
-	if document.Path != "" || document.Content != "" {
-		t.Fatalf("NewDocument() = %#v, want empty", document)
+	if document.Path != "" {
+		t.Fatalf("NewDocument().Path = %q, want empty", document.Path)
+	}
+	if document.Content != requiredRootTemplate {
+		t.Fatalf("NewDocument().Content =\n%s\nwant:\n%s", document.Content, requiredRootTemplate)
+	}
+	if containsAny(document.Content, "description:", "docs:", "user:", "password:", "path:", "args:") {
+		t.Fatalf("NewDocument().Content includes optional key:\n%s", document.Content)
+	}
+	if got := app.ScheduleTemplate(); got != defaultScheduleTemplate {
+		t.Fatalf("ScheduleTemplate() =\n%s\nwant:\n%s", got, defaultScheduleTemplate)
 	}
 
 	path := filepath.Join(t.TempDir(), "config.yaml")
@@ -575,6 +585,42 @@ func TestAppFileOperations(t *testing.T) {
 	if len(recent) != 1 || recent[0] != path {
 		t.Fatalf("RecentFiles() = %#v, want [%q]", recent, path)
 	}
+}
+
+const requiredRootTemplate = `schema_version: "1.0.0"
+common:
+  schema_version: "1.0.0"
+  dates:
+    day1:
+      date: ""
+      holiday: false
+  schedules:
+    run1: &run1 1 #BOD
+    run2: &run2 2 #あいうえお
+    run3: &run3 3 #かきくけこ
+scenario:
+  id: 0
+  name: ""
+  steps:
+    - id: ""
+      name: ""
+      day_ref: ""
+      schedule_ref: ""
+      action:
+        tool: ""
+`
+
+const defaultScheduleTemplate = `run1: &run1 1 #BOD
+run2: &run2 2 #あいうえお
+run3: &run3 3 #かきくけこ`
+
+func containsAny(value string, patterns ...string) bool {
+	for _, pattern := range patterns {
+		if strings.Contains(value, pattern) {
+			return true
+		}
+	}
+	return false
 }
 
 func testApp(t *testing.T) *App {

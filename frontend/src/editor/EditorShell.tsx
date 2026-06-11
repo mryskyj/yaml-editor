@@ -11,9 +11,11 @@ import type * as Monaco from "monaco-editor";
 import {
 	chooseSavePath,
 	completeYAML,
+	loadDefaultScheduleTemplate,
 	loadRecentFiles,
 	loadRootSchema,
 	loadSchema,
+	newYAML,
 	openYAML,
 	saveYAML,
 	type CompletionCandidate,
@@ -28,7 +30,6 @@ import { SchemaPane, type SchemaField } from "../components/SchemaPane";
 import { dateNextBlockCompletion, dateTemplateInsertion, datesSiblingIndent } from "./dateTemplates";
 import { listNextItemCompletion, listNextItemCompletions } from "./listTemplates";
 import {
-	defaultScheduleTemplate,
 	sanitizeScheduleTemplate,
 	scheduleTemplateInsertion,
 } from "./scheduleTemplates";
@@ -39,6 +40,7 @@ import {
 	closeTab,
 	closeConfirmationMessage,
 	createInitialTabState,
+	fillActiveUntouchedUntitledTab,
 	isUnsavedTab,
 	markActiveTabSaved,
 	openDocumentTab,
@@ -168,11 +170,13 @@ export function EditorShell() {
 	const [tabState, setTabState] = useState<TabState>(() => createInitialTabState());
 	const [pendingCloseTabID, setPendingCloseTabID] = useState<string | null>(null);
 	const [isScheduleMenuOpen, setIsScheduleMenuOpen] = useState(false);
-	const [scheduleTemplate, setScheduleTemplate] = useState(loadScheduleTemplate);
+	const [defaultScheduleTemplate, setDefaultScheduleTemplate] = useState("");
+	const [scheduleTemplate, setScheduleTemplate] = useState(() => loadStoredScheduleTemplate() ?? "");
 	const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 	const scheduleTemplateRef = useRef(scheduleTemplate);
 	const [openRequestID, setOpenRequestID] = useState(0);
 	const [recentFiles, setRecentFiles] = useState<string[]>([]);
+	const [newDocumentContent, setNewDocumentContent] = useState("");
 	const [schema, setSchema] = useState<SchemaField>(sampleSchema);
 	const [rootSchema, setRootSchema] = useState<SchemaField>(sampleRootSchema);
 	const currentTab = activeTab(tabState);
@@ -312,6 +316,19 @@ export function EditorShell() {
 	}, []);
 
 	useEffect(() => {
+		void loadDefaultScheduleTemplate().then(async (template) => {
+			const sanitized = sanitizeScheduleTemplate(template);
+			const stored = loadStoredScheduleTemplate();
+			const effectiveScheduleTemplate = stored ?? sanitized;
+			setDefaultScheduleTemplate(sanitized);
+			if (stored === null) {
+				setScheduleTemplate(effectiveScheduleTemplate);
+			}
+			const document = await newYAML();
+			const content = applyScheduleTemplate(document.content, effectiveScheduleTemplate);
+			setNewDocumentContent(content);
+			setTabState((state) => fillActiveUntouchedUntitledTab(state, content));
+		});
 		void loadSchema().then((loadedSchema) => {
 			if (loadedSchema) {
 				setSchema(loadedSchema);
@@ -374,9 +391,16 @@ export function EditorShell() {
 		editor.focus();
 	};
 
-	const handleNew = useCallback(() => {
-		setTabState(addUntitledTab);
-	}, []);
+	const handleNew = useCallback(async () => {
+		try {
+			const document = await newYAML();
+			const content = applyScheduleTemplate(document.content, scheduleTemplate);
+			setNewDocumentContent(content);
+			setTabState((state) => addUntitledTab(state, content));
+		} catch {
+			setTabState((state) => addUntitledTab(state, newDocumentContent));
+		}
+	}, [newDocumentContent, scheduleTemplate]);
 
 	const handleRequestOpen = useCallback(() => {
 		setOpenRequestID((requestID) => requestID + 1);
@@ -450,7 +474,7 @@ export function EditorShell() {
 	const handleResetScheduleTemplate = useCallback(() => {
 		setScheduleTemplate(defaultScheduleTemplate);
 		window.localStorage.removeItem(scheduleTemplateStorageKey);
-	}, []);
+	}, [defaultScheduleTemplate]);
 
 	const handleSelectTab = useCallback((tabID: string) => {
 		setTabState((state) => switchTab(state, tabID));
@@ -466,8 +490,8 @@ export function EditorShell() {
 			return;
 		}
 
-		setTabState((state) => closeTab(state, tabID));
-	}, [tabState.tabs]);
+		setTabState((state) => closeTab(state, tabID, newDocumentContent));
+	}, [newDocumentContent, tabState.tabs]);
 
 	const handleCloseActiveTab = useCallback(() => {
 		handleCloseTab(activeTab(tabState).id);
@@ -481,9 +505,9 @@ export function EditorShell() {
 		if (!pendingCloseTabID) {
 			return;
 		}
-		setTabState((state) => closeTab(state, pendingCloseTabID));
+		setTabState((state) => closeTab(state, pendingCloseTabID, newDocumentContent));
 		setPendingCloseTabID(null);
-	}, [pendingCloseTabID]);
+	}, [newDocumentContent, pendingCloseTabID]);
 
 	const handleSelectAdjacentTab = useCallback((direction: 1 | -1) => {
 		setTabState((state) => switchToAdjacentTab(state, direction));
@@ -679,13 +703,45 @@ function insertCommonTemplate(
 	return true;
 }
 
-function loadScheduleTemplate(): string {
+function loadStoredScheduleTemplate(): string | null {
 	const stored = window.localStorage.getItem(scheduleTemplateStorageKey);
 	if (!stored) {
-		return defaultScheduleTemplate;
+		return null;
 	}
 	const sanitized = sanitizeScheduleTemplate(stored);
-	return sanitized === "" ? defaultScheduleTemplate : sanitized;
+	return sanitized === "" ? null : sanitized;
+}
+
+function applyScheduleTemplate(content: string, scheduleTemplate: string): string {
+	const entries = sanitizeScheduleTemplate(scheduleTemplate)
+		.split("\n")
+		.filter((line) => line.trim() !== "");
+	if (entries.length === 0) {
+		return content;
+	}
+
+	const lines = content.replace(/\r\n/g, "\n").split("\n");
+	const scheduleIndex = lines.findIndex((line) => line.trim() === "schedules:");
+	if (scheduleIndex < 0) {
+		return content;
+	}
+
+	const indent = lines[scheduleIndex].match(/^\s*/)?.[0] ?? "";
+	const childIndent = `${indent}  `;
+	let endIndex = scheduleIndex + 1;
+	for (; endIndex < lines.length; endIndex++) {
+		const line = lines[endIndex] ?? "";
+		if (line.trim() === "") {
+			continue;
+		}
+		const lineIndent = line.match(/^\s*/)?.[0].length ?? 0;
+		if (lineIndent <= indent.length) {
+			break;
+		}
+	}
+
+	lines.splice(scheduleIndex + 1, endIndex - scheduleIndex - 1, ...entries.map((line) => `${childIndent}${line}`));
+	return lines.join("\n");
 }
 
 async function copyEditorSelection(editor: Monaco.editor.IStandaloneCodeEditor | null): Promise<void> {

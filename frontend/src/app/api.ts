@@ -84,6 +84,16 @@ export async function saveYAML(path: string, content: string): Promise<void> {
 	await callRequiredBackend(`${serviceName}.SaveFile`, path, content);
 }
 
+export async function newYAML(): Promise<YAMLDocument> {
+	const result = await callBackend(`${serviceName}.NewDocument`);
+	return normalizeDocument(result);
+}
+
+export async function loadDefaultScheduleTemplate(): Promise<string> {
+	const result = await callBackend(`${serviceName}.ScheduleTemplate`);
+	return typeof result === "string" ? result : "";
+}
+
 export async function openYAML(path: string): Promise<YAMLDocument> {
 	const result = await callRequiredBackend(`${serviceName}.OpenFile`, path);
 	return normalizeDocument(result);

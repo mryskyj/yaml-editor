@@ -10,12 +10,14 @@ import (
 	filex "github.com/mryskyj/yaml-editor/internal/file"
 	"github.com/mryskyj/yaml-editor/internal/schema"
 	"github.com/mryskyj/yaml-editor/internal/validator"
+	"gopkg.in/yaml.v3"
 )
 
 // App exposes application operations to the UI layer.
 type App struct {
-	files    *filex.Service
-	registry *schema.Registry
+	files        *filex.Service
+	registry     *schema.Registry
+	rootDefaults *yaml.Node
 }
 
 // New creates an application service instance.
@@ -36,8 +38,9 @@ func NewWithSchemaSource(schemaDir string, schemaType string) (*App, error) {
 			return nil, err
 		}
 		return &App{
-			files:    filex.NewService(filex.NewRecentStore(recentPath, 10)),
-			registry: registry,
+			files:        filex.NewService(filex.NewRecentStore(recentPath, 10)),
+			registry:     registry,
+			rootDefaults: nil,
 		}, nil
 	}
 
@@ -47,8 +50,9 @@ func NewWithSchemaSource(schemaDir string, schemaType string) (*App, error) {
 // NewWithServices creates an application service with injected dependencies.
 func NewWithServices(files *filex.Service, registry *schema.Registry) *App {
 	app := &App{
-		files:    files,
-		registry: registry,
+		files:        files,
+		registry:     registry,
+		rootDefaults: loadBuiltinRootDefaults(),
 	}
 	if app.registry != nil {
 		_ = registerSampleSchema(app.registry)
@@ -56,12 +60,28 @@ func NewWithServices(files *filex.Service, registry *schema.Registry) *App {
 	return app
 }
 
-// NewDocument returns an empty unsaved YAML document.
+// NewDocument returns an unsaved YAML document initialized from the root schema.
 func (a *App) NewDocument() filex.Document {
 	if a == nil || a.files == nil {
 		return filex.Document{}
 	}
-	return a.files.NewDocument()
+
+	document := a.files.NewDocument()
+	root, err := a.rootSchema()
+	if err != nil {
+		return document
+	}
+	document.Content = rootSchemaTemplate(root, a.rootDefaults)
+	return document
+}
+
+// ScheduleTemplate returns the default schedule template from root defaults.
+func (a *App) ScheduleTemplate() string {
+	root, err := a.rootSchema()
+	if err != nil {
+		return ""
+	}
+	return rootScheduleTemplate(root, a.rootDefaults)
 }
 
 // OpenFile opens a UTF-8 YAML file.

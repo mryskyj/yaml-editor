@@ -4,12 +4,6 @@ export type ScheduleTemplateInsertion = {
 	cursorColumn: number;
 };
 
-export const defaultScheduleTemplate = [
-	"run1: &run1 1 #BOD",
-	"run2: &run2 2 #あいうえお",
-	"run3: &run3 3 #かきくけこ",
-].join("\n");
-
 export function sanitizeScheduleTemplate(value: string): string {
 	const lines = value.replace(/\r\n/g, "\n").split("\n");
 	while (lines.length > 0 && lines[0].trim() === "") {
