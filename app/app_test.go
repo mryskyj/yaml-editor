@@ -21,22 +21,6 @@ func TestNewReturnsApp(t *testing.T) {
 	}
 }
 
-func TestAppStartupDiagnostics(t *testing.T) {
-	t.Parallel()
-
-	app := New()
-	WithStartupDiagnostics(app, []string{"schema option error: failed"})
-	diagnostics := app.StartupDiagnostics()
-	if len(diagnostics) != 1 || diagnostics[0] != "schema option error: failed" {
-		t.Fatalf("StartupDiagnostics() = %#v", diagnostics)
-	}
-
-	diagnostics[0] = "changed"
-	if got := app.StartupDiagnostics()[0]; got != "schema option error: failed" {
-		t.Fatalf("StartupDiagnostics() returned mutable backing array: %q", got)
-	}
-}
-
 func TestAppSchema(t *testing.T) {
 	t.Parallel()
 
@@ -680,6 +664,65 @@ func TestNewWithSchemaSourceAutoDetectsAlternateSample(t *testing.T) {
 	}
 	if _, ok := root.FindChild("server"); ok {
 		t.Fatal("Schema() includes built-in sample server field")
+	}
+}
+
+func TestAppLoadExternalSchema(t *testing.T) {
+	t.Parallel()
+
+	app := testApp(t)
+	if err := app.LoadExternalSchema(filepath.Join("..", "schemas", "alternate-sample")); err != nil {
+		t.Fatalf("LoadExternalSchema() returned error: %v", err)
+	}
+
+	root, err := app.RootSchema()
+	if err != nil {
+		t.Fatalf("RootSchema() returned error: %v", err)
+	}
+	if root.Name != "Workspace" {
+		t.Fatalf("root.Name = %q, want Workspace", root.Name)
+	}
+	if _, ok := root.FindChild("project"); !ok {
+		t.Fatal("RootSchema() missing external project field")
+	}
+	if _, ok := root.FindChild("scenario"); ok {
+		t.Fatal("RootSchema() still includes built-in scenario field")
+	}
+
+	schemas, err := app.Schema()
+	if err != nil {
+		t.Fatalf("Schema() returned error: %v", err)
+	}
+	if _, ok := schemas.FindChild("sample.Project"); !ok {
+		t.Fatalf("Schema() = %#v, want external sample.Project", schemas)
+	}
+	if _, ok := schemas.FindChild("gui.AddAccount"); ok {
+		t.Fatal("Schema() still includes built-in gui.AddAccount")
+	}
+}
+
+func TestAppLoadExternalSchemaKeepsExistingSchemaOnError(t *testing.T) {
+	t.Parallel()
+
+	app := testApp(t)
+	if err := app.LoadExternalSchema(filepath.Join("..", "schemas", "missing-schema")); err == nil {
+		t.Fatal("LoadExternalSchema() returned nil error for missing directory")
+	}
+
+	root, err := app.RootSchema()
+	if err != nil {
+		t.Fatalf("RootSchema() returned error: %v", err)
+	}
+	if root.Name != "File" {
+		t.Fatalf("root.Name = %q, want built-in File", root.Name)
+	}
+
+	schemas, err := app.Schema()
+	if err != nil {
+		t.Fatalf("Schema() returned error: %v", err)
+	}
+	if _, ok := schemas.FindChild("gui.AddAccount"); !ok {
+		t.Fatal("Schema() lost built-in gui.AddAccount after failed external load")
 	}
 }
 

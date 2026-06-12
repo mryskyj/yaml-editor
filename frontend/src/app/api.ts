@@ -109,12 +109,8 @@ export async function loadDefaultScheduleTemplate(): Promise<string> {
 	return typeof result === "string" ? result : "";
 }
 
-export async function loadStartupDiagnostics(): Promise<string[]> {
-	const result = await callBackend(`${serviceName}.StartupDiagnostics`);
-	if (!Array.isArray(result)) {
-		return [];
-	}
-	return result.map(String).filter((message) => message.trim() !== "");
+export async function loadExternalSchema(schemaDir: string): Promise<void> {
+	await callRequiredBackend(`${serviceName}.LoadExternalSchema`, schemaDir);
 }
 
 export async function openYAML(path: string): Promise<YAMLDocument> {
@@ -138,6 +134,25 @@ export async function chooseOpenPath(): Promise<string> {
 			{ DisplayName: "YAML Files", Pattern: "*.yaml;*.yml" },
 			{ DisplayName: "All Files", Pattern: "*" },
 		],
+	});
+	if (Array.isArray(result)) {
+		return result[0] ?? "";
+	}
+	return result;
+}
+
+export async function chooseSchemaDirectory(): Promise<string> {
+	const runtime = await loadRuntime();
+	if (!runtime?.Dialogs?.OpenFile) {
+		throw new Error("Wails open dialog is not available");
+	}
+
+	const result = await runtime.Dialogs.OpenFile({
+		Title: "Select External Schema Folder",
+		ButtonText: "Select",
+		CanChooseFiles: false,
+		CanChooseDirectories: true,
+		AllowsMultipleSelection: false,
 	});
 	if (Array.isArray(result)) {
 		return result[0] ?? "";

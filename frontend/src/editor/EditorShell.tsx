@@ -10,13 +10,14 @@ import {
 import type * as Monaco from "monaco-editor";
 import {
 	chooseSavePath,
+	chooseSchemaDirectory,
 	chooseOpenPath,
 	completeYAML,
+	loadExternalSchema,
 	loadDefaultScheduleTemplate,
 	loadRecentFiles,
 	loadRootSchema,
 	loadSchema,
-	loadStartupDiagnostics,
 	newYAML,
 	openYAML,
 	saveYAML,
@@ -183,7 +184,6 @@ export function EditorShell() {
 	const [newDocumentContent, setNewDocumentContent] = useState("");
 	const [schema, setSchema] = useState<SchemaField>(sampleSchema);
 	const [rootSchema, setRootSchema] = useState<SchemaField>(sampleRootSchema);
-	const [startupDiagnostics, setStartupDiagnostics] = useState<string[]>([]);
 	const currentTab = activeTab(tabState);
 	const pendingCloseTab = pendingCloseTabID
 		? tabState.tabs.find((tab) => tab.id === pendingCloseTabID)
@@ -338,7 +338,30 @@ export function EditorShell() {
 	}, []);
 
 	useEffect(() => {
-		void loadDefaultScheduleTemplate().then(async (template) => {
+		let isMounted = true;
+
+		const initialize = async () => {
+			if (window.confirm("外部スキーマを読み込みますか？")) {
+				try {
+					const schemaDir = await chooseSchemaDirectory();
+					if (schemaDir) {
+						await loadExternalSchema(schemaDir);
+					}
+				} catch (error) {
+					window.alert(`外部スキーマを読み込めませんでした。\n${errorMessage(error)}`);
+				}
+			}
+
+			const [template, loadedSchema, loadedRootSchema, document] = await Promise.all([
+				loadDefaultScheduleTemplate(),
+				loadSchema(),
+				loadRootSchema(),
+				newYAML(),
+			]);
+			if (!isMounted) {
+				return;
+			}
+
 			const sanitized = sanitizeScheduleTemplate(template);
 			const stored = loadStoredScheduleTemplate();
 			const effectiveScheduleTemplate = stored ?? sanitized;
@@ -346,23 +369,22 @@ export function EditorShell() {
 			if (stored === null) {
 				setScheduleTemplate(effectiveScheduleTemplate);
 			}
-			const document = await newYAML();
-			const content = applyScheduleTemplate(document.content, effectiveScheduleTemplate);
-			setNewDocumentContent(content);
-			setTabState((state) => fillActiveUntouchedUntitledTab(state, content));
-		});
-		void loadSchema().then((loadedSchema) => {
 			if (loadedSchema) {
 				setSchema(loadedSchema);
 			}
-		});
-		void loadRootSchema().then((loadedSchema) => {
-			if (loadedSchema) {
-				setRootSchema(loadedSchema);
+			if (loadedRootSchema) {
+				setRootSchema(loadedRootSchema);
 			}
-		});
-		void loadStartupDiagnostics().then(setStartupDiagnostics);
-		void refreshRecentFiles();
+			const content = applyScheduleTemplate(document.content, effectiveScheduleTemplate);
+			setNewDocumentContent(content);
+			setTabState((state) => fillActiveUntouchedUntitledTab(state, content));
+			void refreshRecentFiles();
+		};
+
+		void initialize();
+		return () => {
+			isMounted = false;
+		};
 	}, [refreshRecentFiles]);
 
 	useEffect(() => {
@@ -641,7 +663,7 @@ export function EditorShell() {
 	}, [contextMenu]);
 
 	return (
-		<main className={startupDiagnostics.length > 0 ? "app-shell has-startup-diagnostics" : "app-shell"}>
+		<main className="app-shell">
 			<FileToolbar
 				currentFileName={currentTab?.name ?? "No file"}
 				recentFiles={recentFiles}
@@ -658,15 +680,6 @@ export function EditorShell() {
 				onRedo={() => editorRef.current?.trigger("toolbar", "redo", null)}
 				openRequestID={openRequestID}
 			/>
-			{startupDiagnostics.length > 0 ? (
-				<div className="startup-diagnostics" role="status">
-					{startupDiagnostics.map((message, index) => (
-						<div key={`${index}-${message}`} className="startup-diagnostic">
-							{message}
-						</div>
-					))}
-				</div>
-			) : null}
 			<FileTabs
 				activeTabID={tabState.activeTabID}
 				onClose={handleCloseTab}
@@ -1680,6 +1693,13 @@ function toolValueContext(line: string, column: number): ToolValueContext | null
 function leadingWhitespaceLength(value: string): number {
 	const match = value.match(/^\s*/);
 	return match?.[0].length ?? 0;
+}
+
+function errorMessage(error: unknown): string {
+	if (error instanceof Error) {
+		return error.message;
+	}
+	return String(error);
 }
 
 function completionDetail(candidate: CompletionCandidate): string {

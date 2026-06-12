@@ -15,10 +15,9 @@ import (
 
 // App exposes application operations to the UI layer.
 type App struct {
-	files              *filex.Service
-	registry           *schema.Registry
-	rootDefaults       *yaml.Node
-	startupDiagnostics []string
+	files        *filex.Service
+	registry     *schema.Registry
+	rootDefaults *yaml.Node
 }
 
 // New creates an application service instance.
@@ -30,12 +29,9 @@ func New() *App {
 // NewWithSchemaSource creates an application service using an external Go source schema when configured.
 func NewWithSchemaSource(schemaDir string, schemaType string) (*App, error) {
 	recentPath := filepath.Join(userConfigDir(), "yaml-struct-editor", "recent.json")
-	registry := schema.NewRegistry()
 	if schemaDir != "" {
-		if err := registry.RegisterFromDir(schemaDir, schemaType); err != nil {
-			return nil, err
-		}
-		if err := registry.RegisterToolSchemasFromDir(schemaDir); err != nil {
+		registry, err := externalSchemaRegistry(schemaDir, schemaType)
+		if err != nil {
 			return nil, err
 		}
 		return &App{
@@ -45,7 +41,7 @@ func NewWithSchemaSource(schemaDir string, schemaType string) (*App, error) {
 		}, nil
 	}
 
-	return NewWithServices(filex.NewService(filex.NewRecentStore(recentPath, 10)), registry), nil
+	return NewWithServices(filex.NewService(filex.NewRecentStore(recentPath, 10)), schema.NewRegistry()), nil
 }
 
 // NewWithServices creates an application service with injected dependencies.
@@ -58,15 +54,6 @@ func NewWithServices(files *filex.Service, registry *schema.Registry) *App {
 	if app.registry != nil {
 		_ = registerSampleSchema(app.registry)
 	}
-	return app
-}
-
-// WithStartupDiagnostics stores non-fatal startup errors for display.
-func WithStartupDiagnostics(app *App, diagnostics []string) *App {
-	if app == nil {
-		return nil
-	}
-	app.startupDiagnostics = append([]string(nil), diagnostics...)
 	return app
 }
 
@@ -116,6 +103,20 @@ func (a *App) RecentFiles() ([]string, error) {
 		return nil, nil
 	}
 	return a.files.RecentFiles()
+}
+
+// LoadExternalSchema loads Go source schemas from a user-selected directory.
+func (a *App) LoadExternalSchema(schemaDir string) error {
+	if a == nil {
+		return fmt.Errorf("app service is not configured")
+	}
+	registry, err := externalSchemaRegistry(schemaDir, "")
+	if err != nil {
+		return err
+	}
+	a.registry = registry
+	a.rootDefaults = nil
+	return nil
 }
 
 // ValidateYAML validates YAML content against the registered schema.
@@ -176,14 +177,6 @@ func (a *App) RootSchema() (*schema.Field, error) {
 	return a.rootSchema()
 }
 
-// StartupDiagnostics returns non-fatal startup errors shown by the UI.
-func (a *App) StartupDiagnostics() []string {
-	if a == nil || len(a.startupDiagnostics) == 0 {
-		return nil
-	}
-	return append([]string(nil), a.startupDiagnostics...)
-}
-
 func (a *App) rootSchema() (*schema.Field, error) {
 	if a == nil || a.registry == nil {
 		return nil, fmt.Errorf("schema registry is not configured")
@@ -216,6 +209,20 @@ func cloneSchemaField(field *schema.Field) *schema.Field {
 	clone.Item = cloneSchemaField(field.Item)
 	clone.MapValue = cloneSchemaField(field.MapValue)
 	return &clone
+}
+
+func externalSchemaRegistry(schemaDir string, schemaType string) (*schema.Registry, error) {
+	if schemaDir == "" {
+		return nil, fmt.Errorf("schema directory is required")
+	}
+	registry := schema.NewRegistry()
+	if err := registry.RegisterFromDir(schemaDir, schemaType); err != nil {
+		return nil, err
+	}
+	if err := registry.RegisterToolSchemasFromDir(schemaDir); err != nil {
+		return nil, err
+	}
+	return registry, nil
 }
 
 func userConfigDir() string {
