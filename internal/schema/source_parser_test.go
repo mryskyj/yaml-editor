@@ -223,6 +223,60 @@ type Config struct {
 	}
 }
 
+func TestParseDirResolvesImportedPackageTypesFromGOPATH(t *testing.T) {
+	gopath := t.TempDir()
+	t.Setenv("GOPATH", gopath)
+
+	importDir := filepath.Join(gopath, "src", "example.com", "schema", "shared")
+	if err := os.MkdirAll(importDir, 0o700); err != nil {
+		t.Fatalf("os.MkdirAll() returned error: %v", err)
+	}
+	writeSourceFile(t, importDir, "shared.go", `package shared
+
+type Mode string
+
+type Endpoint struct {
+	Host string `+"`yaml:\"host\"`"+`
+	Port int `+"`yaml:\"port\"`"+`
+	Mode Mode `+"`yaml:\"mode,omitempty\"`"+`
+}
+`)
+
+	dir := t.TempDir()
+	writeSourceFile(t, dir, "config.go", `package sample
+
+import sharedschema "example.com/schema/shared"
+
+type Config struct {
+	Endpoint sharedschema.Endpoint `+"`yaml:\"endpoint\"`"+`
+	Replicas []sharedschema.Endpoint `+"`yaml:\"replicas\"`"+`
+}
+`)
+
+	root, err := ParseDir(dir, "Config")
+	if err != nil {
+		t.Fatalf("ParseDir() returned error: %v", err)
+	}
+
+	endpoint := mustChild(t, root, "endpoint")
+	host := mustChild(t, endpoint, "host")
+	if host.Type != FieldTypeString {
+		t.Fatalf("host.Type = %q, want %q", host.Type, FieldTypeString)
+	}
+	mode := mustChild(t, endpoint, "mode")
+	if mode.Type != FieldTypeString || mode.Required {
+		t.Fatalf("mode = %#v, want optional named string", mode)
+	}
+
+	replicas := mustChild(t, root, "replicas")
+	if replicas.Type != FieldTypeSlice || replicas.Item == nil || replicas.Item.Type != FieldTypeStruct {
+		t.Fatalf("replicas = %#v, want imported struct slice", replicas)
+	}
+	if _, ok := replicas.Item.FindChild("port"); !ok {
+		t.Fatal("replicas item missing imported port field")
+	}
+}
+
 func TestParseDirRejectsTypeAlias(t *testing.T) {
 	t.Parallel()
 

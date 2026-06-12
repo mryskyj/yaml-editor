@@ -164,6 +164,7 @@ Goコードのコンパイル、実行、動的更新は行わない。
 
 外部スキーマフォルダを選択した場合、指定フォルダ配下の複数 `.go` ファイルを再帰的に読み込む。
 フォルダ内のファイルをまたいでstructや型を参照している場合も、同一パッケージ内で定義された名前付きstructであれば依存関係を解決し、`tool` / `args` の補完・検証・スキーマ表示に反映する。
+フィールド型が `pkg.Type` 形式でimport先パッケージを参照している場合は、import pathをGOPATH配下から解決し、参照先パッケージのGoソースを静的解析してYAML対象structと名前付きスカラー型を展開する。
 YAML文書全体を表すroot schemaは常に組み込みの `app/rootschema.File` を使い、外部スキーマ読み込み時も `common`、`scenario`、`steps` などのRoot構造を維持する。
 外部スキーマ読み込みに失敗した場合、GUIアプリは即終了せず、エラー内容を画面上のダイアログで表示して組み込み参照用サンプルスキーマで継続する。
 
@@ -196,6 +197,7 @@ type Server struct {
 - int
 - float
 - `type Mode string` や `type Priority int` のような名前付きスカラー型
+- GOPATH配下のimport先パッケージで定義されたstructと名前付きスカラー型
 
 取得対象タグ
 

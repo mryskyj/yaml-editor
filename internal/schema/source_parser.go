@@ -3,6 +3,7 @@ package schema
 import (
 	"fmt"
 	"go/ast"
+	"go/build"
 	"go/parser"
 	"go/token"
 	"io/fs"
@@ -18,6 +19,8 @@ type sourceTypes struct {
 	structs     map[string]*ast.StructType
 	scalars     map[string]FieldType
 	collections map[string]ast.Expr
+	imports     map[string]string
+	external    map[string]*sourceTypes
 }
 
 // ParseDir converts Go struct definitions in a directory into a YAML editor schema field.
@@ -262,6 +265,8 @@ func newSourceTypes() *sourceTypes {
 		structs:     make(map[string]*ast.StructType),
 		scalars:     make(map[string]FieldType),
 		collections: make(map[string]ast.Expr),
+		imports:     make(map[string]string),
+		external:    make(map[string]*sourceTypes),
 	}
 }
 
@@ -280,6 +285,7 @@ func collectSourceTypes(fset *token.FileSet, filePath string, source []byte, sou
 
 func collectSourceTypeDecls(file *ast.File, filePath string, sourceTypes *sourceTypes) error {
 	_ = filePath
+	collectSourceImports(file, sourceTypes)
 	for _, decl := range file.Decls {
 		genDecl, ok := decl.(*ast.GenDecl)
 		if !ok || genDecl.Tok != token.TYPE {
@@ -312,6 +318,29 @@ func collectSourceTypeDecls(file *ast.File, filePath string, sourceTypes *source
 		}
 	}
 	return nil
+}
+
+func collectSourceImports(file *ast.File, sourceTypes *sourceTypes) {
+	if file == nil || sourceTypes == nil {
+		return
+	}
+	for _, sourceImport := range file.Imports {
+		if sourceImport.Path == nil {
+			continue
+		}
+		importPath, err := strconv.Unquote(sourceImport.Path.Value)
+		if err != nil || importPath == "" {
+			continue
+		}
+		alias := path.Base(importPath)
+		if sourceImport.Name != nil {
+			if sourceImport.Name.Name == "." || sourceImport.Name.Name == "_" {
+				continue
+			}
+			alias = sourceImport.Name.Name
+		}
+		sourceTypes.imports[alias] = importPath
+	}
 }
 
 func detectSourceRootType(sourceTypes *sourceTypes) (string, error) {
@@ -486,10 +515,88 @@ func parseSourceExpr(name string, expr ast.Expr, sourceTypes *sourceTypes, stack
 		}
 		return &Field{Name: name, Type: FieldTypeMap, MapKeyType: key, MapValue: value}, nil
 	case *ast.SelectorExpr:
-		return nil, fmt.Errorf("external package type references are not supported")
+		packageName, ok := t.X.(*ast.Ident)
+		if !ok {
+			return nil, fmt.Errorf("unsupported external package selector")
+		}
+		externalTypes, err := resolveExternalSourceTypes(packageName.Name, sourceTypes)
+		if err != nil {
+			return nil, err
+		}
+		field, err := parseSourceExpr(name, ast.NewIdent(t.Sel.Name), externalTypes, map[string]bool{})
+		if err != nil {
+			return nil, err
+		}
+		field.Name = name
+		return field, nil
 	default:
 		return nil, fmt.Errorf("unsupported type expression %T", expr)
 	}
+}
+
+func resolveExternalSourceTypes(alias string, types *sourceTypes) (*sourceTypes, error) {
+	if types == nil {
+		return nil, fmt.Errorf("schema source parse failed: external package %q cannot be resolved", alias)
+	}
+
+	importPath, ok := types.imports[alias]
+	if !ok {
+		return nil, fmt.Errorf("schema source parse failed: external package alias %q is not imported", alias)
+	}
+	if types.external == nil {
+		types.external = make(map[string]*sourceTypes)
+	}
+	if cached, ok := types.external[importPath]; ok {
+		return cached, nil
+	}
+
+	dir, err := resolveImportDir(importPath)
+	if err != nil {
+		return nil, err
+	}
+	externalTypes, err := parseSourceStructs(dir)
+	if err != nil {
+		return nil, fmt.Errorf("schema source parse failed: parse imported package %q: %w", importPath, err)
+	}
+	types.external[importPath] = externalTypes
+	return externalTypes, nil
+}
+
+func resolveImportDir(importPath string) (string, error) {
+	for _, gopath := range gopathList() {
+		dir := filepath.Join(gopath, "src", filepath.FromSlash(importPath))
+		info, err := os.Stat(dir)
+		if err == nil && info.IsDir() {
+			return dir, nil
+		}
+	}
+
+	pkg, err := build.Default.Import(importPath, "", build.FindOnly)
+	if err == nil && pkg.Dir != "" {
+		if pkg.Goroot {
+			return "", fmt.Errorf("schema source parse failed: standard library package type %q is not supported", importPath)
+		}
+		return pkg.Dir, nil
+	}
+
+	return "", fmt.Errorf("schema source parse failed: import package %q could not be resolved from GOPATH", importPath)
+}
+
+func gopathList() []string {
+	gopath := os.Getenv("GOPATH")
+	if strings.TrimSpace(gopath) == "" {
+		gopath = build.Default.GOPATH
+	}
+
+	paths := make([]string, 0)
+	for _, entry := range filepath.SplitList(gopath) {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		paths = append(paths, entry)
+	}
+	return paths
 }
 
 func sourceYAMLName(field *ast.Field) (string, bool, error) {
