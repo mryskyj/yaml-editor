@@ -679,14 +679,24 @@ func TestAppLoadExternalSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RootSchema() returned error: %v", err)
 	}
-	if root.Name != "Workspace" {
-		t.Fatalf("root.Name = %q, want Workspace", root.Name)
+	if root.Name != "File" {
+		t.Fatalf("root.Name = %q, want built-in File", root.Name)
 	}
-	if _, ok := root.FindChild("project"); !ok {
-		t.Fatal("RootSchema() missing external project field")
+	if _, ok := root.FindChild("scenario"); !ok {
+		t.Fatal("RootSchema() missing built-in scenario field")
 	}
-	if _, ok := root.FindChild("scenario"); ok {
-		t.Fatal("RootSchema() still includes built-in scenario field")
+	if _, ok := root.FindChild("project"); ok {
+		t.Fatal("RootSchema() includes external project field")
+	}
+	if document := app.NewDocument(); document.Content != requiredRootTemplate {
+		t.Fatalf("NewDocument().Content =\n%s\nwant built-in root template:\n%s", document.Content, requiredRootTemplate)
+	}
+	rootCandidates, err := app.CompleteYAML("", 1, 1)
+	if err != nil {
+		t.Fatalf("CompleteYAML() returned error: %v", err)
+	}
+	if !hasCandidate(rootCandidates, "schema_version") || !hasCandidate(rootCandidates, "common") || !hasCandidate(rootCandidates, "scenario") {
+		t.Fatalf("CompleteYAML() candidates = %#v, want built-in root keys", rootCandidates)
 	}
 
 	schemas, err := app.Schema()

@@ -110,12 +110,19 @@ func (a *App) LoadExternalSchema(schemaDir string) error {
 	if a == nil {
 		return fmt.Errorf("app service is not configured")
 	}
-	registry, err := externalSchemaRegistry(schemaDir, "")
+
+	root, err := a.rootSchema()
 	if err != nil {
 		return err
 	}
+	registry := schema.NewRegistry()
+	if err := registry.SetRoot(cloneSchemaField(root)); err != nil {
+		return err
+	}
+	if err := registry.RegisterToolSchemasFromDir(schemaDir); err != nil {
+		return err
+	}
 	a.registry = registry
-	a.rootDefaults = nil
 	return nil
 }
 

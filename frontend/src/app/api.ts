@@ -26,7 +26,9 @@ type RuntimeModule = {
 		ByName?: (methodName: string, ...args: unknown[]) => Promise<unknown>;
 	};
 	Dialogs?: {
+		Error?: (options: MessageDialogOptions) => Promise<string>;
 		OpenFile?: (options: OpenFileDialogOptions) => Promise<string | string[]>;
+		Question?: (options: MessageDialogOptions) => Promise<string>;
 		SaveFile?: (options: SaveFileDialogOptions) => Promise<string>;
 	};
 };
@@ -56,6 +58,18 @@ type OpenFileDialogOptions = {
 		DisplayName?: string;
 		Pattern?: string;
 	}>;
+};
+
+type MessageDialogOptions = {
+	Title?: string;
+	Message?: string;
+	Buttons?: DialogButton[];
+};
+
+type DialogButton = {
+	Label: string;
+	IsCancel?: boolean;
+	IsDefault?: boolean;
 };
 
 export async function validateYAML(content: string, path = ""): Promise<EditorDiagnostic[]> {
@@ -111,6 +125,37 @@ export async function loadDefaultScheduleTemplate(): Promise<string> {
 
 export async function loadExternalSchema(schemaDir: string): Promise<void> {
 	await callRequiredBackend(`${serviceName}.LoadExternalSchema`, schemaDir);
+}
+
+export async function confirmExternalSchemaLoad(): Promise<boolean> {
+	const runtime = await loadRuntime();
+	if (!runtime?.Dialogs?.Question) {
+		return window.confirm("外部スキーマを読み込みますか？");
+	}
+
+	const answer = await runtime.Dialogs.Question({
+		Title: "外部スキーマ",
+		Message: "外部スキーマを読み込みますか？",
+		Buttons: [
+			{ Label: "Yes", IsDefault: true },
+			{ Label: "No", IsCancel: true },
+		],
+	});
+	return answer === "Yes";
+}
+
+export async function showErrorDialog(title: string, message: string): Promise<void> {
+	const runtime = await loadRuntime();
+	if (!runtime?.Dialogs?.Error) {
+		window.alert(`${title}\n${message}`);
+		return;
+	}
+
+	await runtime.Dialogs.Error({
+		Title: title,
+		Message: message,
+		Buttons: [{ Label: "OK", IsDefault: true, IsCancel: true }],
+	});
 }
 
 export async function openYAML(path: string): Promise<YAMLDocument> {

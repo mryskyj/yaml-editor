@@ -13,6 +13,7 @@ import {
 	chooseSchemaDirectory,
 	chooseOpenPath,
 	completeYAML,
+	confirmExternalSchemaLoad,
 	loadExternalSchema,
 	loadDefaultScheduleTemplate,
 	loadRecentFiles,
@@ -21,6 +22,7 @@ import {
 	newYAML,
 	openYAML,
 	saveYAML,
+	showErrorDialog,
 	type CompletionCandidate,
 	validateYAML,
 } from "../app/api";
@@ -341,14 +343,14 @@ export function EditorShell() {
 		let isMounted = true;
 
 		const initialize = async () => {
-			if (window.confirm("外部スキーマを読み込みますか？")) {
+			if (await confirmExternalSchemaLoad()) {
 				try {
 					const schemaDir = await chooseSchemaDirectory();
 					if (schemaDir) {
 						await loadExternalSchema(schemaDir);
 					}
 				} catch (error) {
-					window.alert(`外部スキーマを読み込めませんでした。\n${errorMessage(error)}`);
+					await showErrorDialog("外部スキーマ", `外部スキーマを読み込めませんでした。\n${errorMessage(error)}`);
 				}
 			}
 
