@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -541,9 +542,10 @@ scenario:
 		t.Fatalf("ValidateYAMLForPath() diagnostics = %#v, want one include read diagnostic", diagnostics)
 	}
 
+	absoluteIncludePath := strconv.Quote(filepath.Join(t.TempDir(), "common.yaml"))
 	diagnostics, err = app.ValidateYAMLForPath(`
 schema_version: "1.0.0"
-common: !include "/tmp/common.yaml"
+common: !include `+absoluteIncludePath+`
 scenario:
   id: 1
   name: test
