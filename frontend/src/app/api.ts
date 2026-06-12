@@ -109,6 +109,14 @@ export async function loadDefaultScheduleTemplate(): Promise<string> {
 	return typeof result === "string" ? result : "";
 }
 
+export async function loadStartupDiagnostics(): Promise<string[]> {
+	const result = await callBackend(`${serviceName}.StartupDiagnostics`);
+	if (!Array.isArray(result)) {
+		return [];
+	}
+	return result.map(String).filter((message) => message.trim() !== "");
+}
+
 export async function openYAML(path: string): Promise<YAMLDocument> {
 	const result = await callRequiredBackend(`${serviceName}.OpenFile`, path);
 	return normalizeDocument(result);

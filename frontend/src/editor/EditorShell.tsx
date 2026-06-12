@@ -16,6 +16,7 @@ import {
 	loadRecentFiles,
 	loadRootSchema,
 	loadSchema,
+	loadStartupDiagnostics,
 	newYAML,
 	openYAML,
 	saveYAML,
@@ -182,6 +183,7 @@ export function EditorShell() {
 	const [newDocumentContent, setNewDocumentContent] = useState("");
 	const [schema, setSchema] = useState<SchemaField>(sampleSchema);
 	const [rootSchema, setRootSchema] = useState<SchemaField>(sampleRootSchema);
+	const [startupDiagnostics, setStartupDiagnostics] = useState<string[]>([]);
 	const currentTab = activeTab(tabState);
 	const pendingCloseTab = pendingCloseTabID
 		? tabState.tabs.find((tab) => tab.id === pendingCloseTabID)
@@ -359,6 +361,7 @@ export function EditorShell() {
 				setRootSchema(loadedSchema);
 			}
 		});
+		void loadStartupDiagnostics().then(setStartupDiagnostics);
 		void refreshRecentFiles();
 	}, [refreshRecentFiles]);
 
@@ -638,15 +641,15 @@ export function EditorShell() {
 	}, [contextMenu]);
 
 	return (
-		<main className="app-shell">
+		<main className={startupDiagnostics.length > 0 ? "app-shell has-startup-diagnostics" : "app-shell"}>
 			<FileToolbar
-					currentFileName={currentTab?.name ?? "No file"}
-					recentFiles={recentFiles}
-					onNew={handleNew}
-					onOpen={handleOpen}
-					onOpenLocalFile={handleOpenLocalFile}
-					onOpenRecent={handleOpenRecent}
-					onSave={handleSave}
+				currentFileName={currentTab?.name ?? "No file"}
+				recentFiles={recentFiles}
+				onNew={handleNew}
+				onOpen={handleOpen}
+				onOpenLocalFile={handleOpenLocalFile}
+				onOpenRecent={handleOpenRecent}
+				onSave={handleSave}
 				onSchedules={() => setIsScheduleMenuOpen(true)}
 				onCopy={handleCopy}
 				onCut={handleCut}
@@ -655,6 +658,15 @@ export function EditorShell() {
 				onRedo={() => editorRef.current?.trigger("toolbar", "redo", null)}
 				openRequestID={openRequestID}
 			/>
+			{startupDiagnostics.length > 0 ? (
+				<div className="startup-diagnostics" role="status">
+					{startupDiagnostics.map((message, index) => (
+						<div key={`${index}-${message}`} className="startup-diagnostic">
+							{message}
+						</div>
+					))}
+				</div>
+			) : null}
 			<FileTabs
 				activeTabID={tabState.activeTabID}
 				onClose={handleCloseTab}

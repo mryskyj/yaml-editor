@@ -77,6 +77,7 @@
 - [x] 起動時と新規作成時にRootスキーマの必須キーを初期YAMLとして補填する
 - [x] Rootスキーマ初期値をdefaults定義ファイルに集約する
 - [x] Commonに必須のnumber_of_daysを追加する
+- [x] Windows exeの起動時引数指定で通常起動できるようにする
 
 ---
 

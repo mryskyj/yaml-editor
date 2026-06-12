@@ -21,6 +21,22 @@ func TestNewReturnsApp(t *testing.T) {
 	}
 }
 
+func TestAppStartupDiagnostics(t *testing.T) {
+	t.Parallel()
+
+	app := New()
+	WithStartupDiagnostics(app, []string{"schema option error: failed"})
+	diagnostics := app.StartupDiagnostics()
+	if len(diagnostics) != 1 || diagnostics[0] != "schema option error: failed" {
+		t.Fatalf("StartupDiagnostics() = %#v", diagnostics)
+	}
+
+	diagnostics[0] = "changed"
+	if got := app.StartupDiagnostics()[0]; got != "schema option error: failed" {
+		t.Fatalf("StartupDiagnostics() returned mutable backing array: %q", got)
+	}
+}
+
 func TestAppSchema(t *testing.T) {
 	t.Parallel()
 

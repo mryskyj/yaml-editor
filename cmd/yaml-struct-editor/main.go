@@ -2,22 +2,40 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"io"
 	"log"
+	"os"
+	"strings"
 
 	appservice "github.com/mryskyj/yaml-editor/app"
 	"github.com/mryskyj/yaml-editor/frontend"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-func main() {
-	schemaDir := flag.String("schema-dir", "", "directory containing Go source schema files")
-	schemaType := flag.String("schema-type", "", "root schema struct name; auto-detected when omitted")
-	flag.Parse()
+type startupOptions struct {
+	schemaDir  string
+	schemaType string
+}
 
-	service, err := appservice.NewWithSchemaSource(*schemaDir, *schemaType)
+func main() {
+	options, err := parseStartupOptions(os.Args[1:])
+	sanitizeProcessArgsForWails()
+	startupDiagnostics := make([]string, 0)
 	if err != nil {
-		log.Fatal(err)
+		startupDiagnostics = append(startupDiagnostics, fmt.Sprintf("startup option error: %v", err))
 	}
+
+	service := appservice.New()
+	if err == nil {
+		configuredService, configureErr := appservice.NewWithSchemaSource(options.schemaDir, options.schemaType)
+		if configureErr != nil {
+			startupDiagnostics = append(startupDiagnostics, fmt.Sprintf("schema option error: %v", configureErr))
+		} else {
+			service = configuredService
+		}
+	}
+	appservice.WithStartupDiagnostics(service, startupDiagnostics)
 
 	wailsApp := application.New(application.Options{
 		Name:        "YAML Struct Editor",
@@ -48,4 +66,26 @@ func main() {
 	if err := wailsApp.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func parseStartupOptions(args []string) (startupOptions, error) {
+	var options startupOptions
+	flags := flag.NewFlagSet("yaml-struct-editor", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	flags.StringVar(&options.schemaDir, "schema-dir", "", "directory containing Go source schema files")
+	flags.StringVar(&options.schemaType, "schema-type", "", "root schema struct name; auto-detected when omitted")
+	if err := flags.Parse(args); err != nil {
+		return options, err
+	}
+	if remaining := flags.Args(); len(remaining) > 0 {
+		return options, fmt.Errorf("unexpected argument: %s", strings.Join(remaining, " "))
+	}
+	return options, nil
+}
+
+func sanitizeProcessArgsForWails() {
+	if len(os.Args) <= 1 {
+		return
+	}
+	os.Args = os.Args[:1]
 }

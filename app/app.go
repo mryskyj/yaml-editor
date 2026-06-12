@@ -15,9 +15,10 @@ import (
 
 // App exposes application operations to the UI layer.
 type App struct {
-	files        *filex.Service
-	registry     *schema.Registry
-	rootDefaults *yaml.Node
+	files              *filex.Service
+	registry           *schema.Registry
+	rootDefaults       *yaml.Node
+	startupDiagnostics []string
 }
 
 // New creates an application service instance.
@@ -57,6 +58,15 @@ func NewWithServices(files *filex.Service, registry *schema.Registry) *App {
 	if app.registry != nil {
 		_ = registerSampleSchema(app.registry)
 	}
+	return app
+}
+
+// WithStartupDiagnostics stores non-fatal startup errors for display.
+func WithStartupDiagnostics(app *App, diagnostics []string) *App {
+	if app == nil {
+		return nil
+	}
+	app.startupDiagnostics = append([]string(nil), diagnostics...)
 	return app
 }
 
@@ -164,6 +174,14 @@ func (a *App) Schema() (*schema.Field, error) {
 // RootSchema returns the registered YAML document schema for context-sensitive UI.
 func (a *App) RootSchema() (*schema.Field, error) {
 	return a.rootSchema()
+}
+
+// StartupDiagnostics returns non-fatal startup errors shown by the UI.
+func (a *App) StartupDiagnostics() []string {
+	if a == nil || len(a.startupDiagnostics) == 0 {
+		return nil
+	}
+	return append([]string(nil), a.startupDiagnostics...)
 }
 
 func (a *App) rootSchema() (*schema.Field, error) {

@@ -70,6 +70,14 @@ YAML文書全体を表すroot schemaは、指定ディレクトリ直下の `.go
 go run ./cmd/yaml-struct-editor --schema-dir schemas/external-sample
 ```
 
+配布用Windows exeでも同じオプションを指定できます。
+
+```powershell
+.\yaml-struct-editor.exe --schema-dir C:\schemas\external-sample --schema-type Config
+```
+
+Windows GUI exeはコンソールを表示しないため、外部スキーマ読み込みに失敗した場合はアプリを即終了せず、組み込みRootスキーマで起動して画面上部に診断を表示します。
+
 root候補が複数ある場合は、`--schema-type` で明示します。
 
 ```sh
