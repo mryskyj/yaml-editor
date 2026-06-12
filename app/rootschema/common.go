@@ -8,5 +8,6 @@ type Date struct {
 type Common struct {
 	SchemaVersion string           `yaml:"schema_version,omitempty"`
 	Dates         map[string]*Date `yaml:"dates"`
+	NumberOfDays  int64            `yaml:"number_of_days"`
 	Schedules     map[string]int   `yaml:"schedules"`
 }

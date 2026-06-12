@@ -285,6 +285,7 @@ schema_version: v1
 common:
   schema_version: v1
   dates: {}
+  number_of_days: 1
   schedules: {}
 scenario:
   id: 1
@@ -322,6 +323,7 @@ schema_version: v1
 common:
   schema_version: v1
   dates: {}
+  number_of_days: 1
   schedules: {}
 scenario:
   id: 1
@@ -385,6 +387,13 @@ func TestAppSchemaCommonDatesUseDayDateHolidayStructure(t *testing.T) {
 	if holiday.Type != schema.FieldTypeBool {
 		t.Fatalf("common.dates holiday Type = %q, want bool", holiday.Type)
 	}
+	numberOfDays := mustSchemaChild(t, common, "number_of_days")
+	if numberOfDays.Type != schema.FieldTypeInt {
+		t.Fatalf("common.number_of_days Type = %q, want int", numberOfDays.Type)
+	}
+	if !numberOfDays.Required {
+		t.Fatal("common.number_of_days Required = false, want true")
+	}
 }
 
 func TestAppSchemaCommonSchedulesUseRunScalarStructure(t *testing.T) {
@@ -421,6 +430,7 @@ schema_version: v1
 common:
   schema_version: v1
   dates: {}
+  number_of_days: 1
   schedules:
     run1: &run1 1 #BOD
     run2: &run2 2 #あいうえお
@@ -476,6 +486,7 @@ func TestAppValidateYAMLCommonIncludeAcceptsWrappedCommon(t *testing.T) {
     day1:
       date: "2026-03-01"
       holiday: false
+  number_of_days: 1
   schedules:
     run1: &run1 1 #BOD
 `)
@@ -547,6 +558,7 @@ scenario:
 
 	dir := t.TempDir()
 	writeTextFile(t, filepath.Join(dir, "common.yaml"), `dates: !include "dates.yaml"
+number_of_days: 1
 schedules: {}
 `)
 	diagnostics, err = app.ValidateYAMLForPath(`
@@ -798,6 +810,7 @@ common:
     day1:
       date: ""
       holiday: false
+  number_of_days: 1
   schedules:
     run1: &run1 1 #BOD
     run2: &run2 2 #あいうえお
@@ -879,6 +892,7 @@ const includeCommonYAML = `dates:
   day2:
     date: "2026-03-02"
     holiday: true
+number_of_days: 2
 schedules:
   run1: &run1 1 #BOD
   run2: &run2 2 #deploy

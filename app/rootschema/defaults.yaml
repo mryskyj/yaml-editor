@@ -4,6 +4,7 @@ common:
     day1:
       date: ""
       holiday: false
+  number_of_days: 1
   schedules:
     run1: &run1 1 #BOD
     run2: &run2 2 #あいうえお

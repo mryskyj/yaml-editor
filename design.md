@@ -141,7 +141,7 @@ UI向けAPIは表示に必要なデータだけを返し、検証や補完の判
 App serviceの `NewDocument` は登録済みRootスキーマから未保存ドキュメントの初期YAMLを生成する。
 初期YAMLには `Required` のキーだけを含め、`Option` のキーは省略する。
 Rootスキーマの初期値は `app/rootschema/defaults.yaml` に定義し、テンプレート生成時はRootスキーマの型・必須情報に沿ってdefaultsの値を反映する。
-Rootスキーマの初期YAMLではRoot `schema_version` に `1.0.0` を入れ、`common.dates` は `day1.date` と `day1.holiday` を展開し、`common.schedules` はdefaultsのscheduleテンプレートを展開する。
+Rootスキーマの初期YAMLではRoot `schema_version` に `1.0.0` を入れ、`common.dates` は `day1.date` と `day1.holiday`、`common.number_of_days` は `1`、`common.schedules` はdefaultsのscheduleテンプレートを展開する。
 `common.schema_version` は任意項目として扱い、初期YAMLとinclude先では必須にしない。
 `scenario.steps[].day_ref` と `schedule_ref` は任意キーとして扱い、初期YAMLでは省略する。
 初期YAMLの `common` はインライン定義として生成し、include定義はユーザーが明示的に選択する。
@@ -387,6 +387,7 @@ slice / array は現在パスの解決時に `Item` のschemaへ降り、`scenar
 
 組み込みRootスキーマの `common.dates` は `map[string]*Date` として扱い、YAML上では `day1`, `day2` のような連番キーを利用する。
 `Date` のYAML対象フィールドは `date` と `holiday` とする。
+`common.number_of_days` は `int64` として扱い、`dates` と `schedules` の間に置く必須キーとする。
 
 `common` はインラインmap、または `common: !include "relative/path.yaml"` のscalar tagで表現できる。
 includeは `common` キーのみ対応する。
